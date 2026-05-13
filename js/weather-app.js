@@ -3,9 +3,20 @@ class WeatherApp {
     constructor() {
         this.api = new WeatherAPI(API_BASE_URL);
         this.chartManager = null;
-        this.currentDate = new Date(DEFAULT_DATE);
+        this.currentDate = this.parseAPIDate(DEFAULT_DATE);
+        this.firstDate = FIRST_DATE;
+        this.lastDate = LAST_DATE;
+        this.language = this.getSavedLanguage();
+        this.theme = this.getSavedTheme();
         this.comparisonMode = false;
         this.isLoading = false;
+        this.chartDays = 7;
+        this.currentWeatherData = null;
+        this.currentComparisonData = null;
+        this.monthlyStats = null;
+        this.monthlyStatsYear = null;
+        this.monthlyStatsMonth = null;
+        this.lastRefreshTime = null;
         
         // Wait for DOM and scripts to be ready
         if (document.readyState === 'loading') {
@@ -17,18 +28,44 @@ class WeatherApp {
 
     async init() {
         try {
+            this.applyTheme(this.theme);
+            this.applyTranslations();
             this.setupEventListeners();
             
             // Wait for Chart.js to be available
             await this.waitForChart();
-            this.chartManager = new ChartManager();
+            this.chartManager = new ChartManager(this.language);
+            this.chartManager.updateTheme(this.theme === 'dark');
             
             await this.hideLoadingScreen();
             await this.loadInitialData();
         } catch (error) {
             console.error('Failed to initialize app:', error);
-            this.showMessage('Er is een fout opgetreden bij het opstarten van de applicatie.', 'error');
+            this.showMessage(this.t('startupError'), 'error');
         }
+    }
+
+    getSavedLanguage() {
+        const savedLanguage = localStorage.getItem('knmi-language');
+        return ['nl', 'en'].includes(savedLanguage) ? savedLanguage : 'nl';
+    }
+
+    getSavedTheme() {
+        const savedTheme = localStorage.getItem('knmi-theme');
+        if (['light', 'dark'].includes(savedTheme)) return savedTheme;
+
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+
+    t(key, params = {}) {
+        const dictionary = window.AppI18n?.[this.language] || window.AppI18n?.nl || {};
+        let value = dictionary[key] || key;
+
+        Object.entries(params).forEach(([param, replacement]) => {
+            value = value.replace(`{${param}}`, replacement);
+        });
+
+        return value;
     }
 
     async waitForChart() {
@@ -60,30 +97,39 @@ class WeatherApp {
     }
 
     setupEventListeners() {
+        document.querySelectorAll('[data-language]').forEach(button => {
+            button.addEventListener('click', () => {
+                this.setLanguage(button.dataset.language);
+            });
+        });
+
+        const themeToggle = document.getElementById('themeToggle');
+        if (themeToggle) {
+            themeToggle.addEventListener('click', () => {
+                this.setTheme(this.theme === 'dark' ? 'light' : 'dark');
+            });
+        }
+
         // Date navigation
         const primaryDate = document.getElementById('primaryDate');
         if (primaryDate) {
             primaryDate.addEventListener('change', (e) => {
-                this.currentDate = new Date(e.target.value);
+                this.currentDate = this.parseAPIDate(e.target.value);
                 this.loadWeatherData();
             });
         }
 
-        const todayBtn = document.getElementById('todayBtn');
-        if (todayBtn) {
-            todayBtn.addEventListener('click', () => {
-                const today = new Date();
-                const todayStr = today.toISOString().split('T')[0];
-                if (todayStr <= LAST_DATE) {
-                    this.currentDate = today;
-                    document.getElementById('primaryDate').value = todayStr;
-                    this.loadWeatherData();
-                } else {
-                    this.showMessage('Vandaag is nog geen data beschikbaar. Laatste beschikbare datum wordt getoond.', 'warning');
-                    this.currentDate = new Date(LAST_DATE);
-                    document.getElementById('primaryDate').value = LAST_DATE;
-                    this.loadWeatherData();
-                }
+        const refreshData = document.getElementById('refreshData');
+        if (refreshData) {
+            refreshData.addEventListener('click', () => {
+                this.refreshData(true);
+            });
+        }
+
+        const latestDay = document.getElementById('latestDay');
+        if (latestDay) {
+            latestDay.addEventListener('click', () => {
+                this.goToLatestDay();
             });
         }
 
@@ -228,8 +274,7 @@ class WeatherApp {
                     case 't':
                     case 'T':
                         e.preventDefault();
-                        const todayBtnEl = document.getElementById('todayBtn');
-                        if (todayBtnEl) todayBtnEl.click();
+                        this.goToLatestDay();
                         break;
                 }
             }
@@ -247,12 +292,163 @@ class WeatherApp {
 
         // Online/offline detection
         window.addEventListener('online', () => {
-            this.showMessage('Internetverbinding hersteld.', 'success');
+            this.showMessage(this.t('connectionRestored'), 'success');
         });
 
         window.addEventListener('offline', () => {
-            this.showMessage('Geen internetverbinding. Sommige functies zijn mogelijk beperkt.', 'warning');
+            this.showMessage(this.t('offlineLimited'), 'warning');
         });
+    }
+
+    setLanguage(language) {
+        if (!['nl', 'en'].includes(language)) return;
+
+        this.language = language;
+        localStorage.setItem('knmi-language', language);
+        document.documentElement.lang = language;
+        this.applyTranslations();
+
+        if (this.chartManager) {
+            this.chartManager.setLanguage(language);
+        }
+
+        if (this.currentWeatherData) {
+            this.updatePrimaryWeatherDisplay(this.currentWeatherData);
+        }
+
+        if (this.currentComparisonData) {
+            this.updateComparisonWeatherDisplay(this.currentComparisonData);
+        }
+
+        if (this.monthlyStats) {
+            this.updateMonthlyStatsDisplay(this.monthlyStats, this.monthlyStatsYear, this.monthlyStatsMonth);
+        }
+    }
+
+    setTheme(theme) {
+        if (!['light', 'dark'].includes(theme)) return;
+
+        this.theme = theme;
+        localStorage.setItem('knmi-theme', theme);
+        this.applyTheme(theme);
+    }
+
+    applyTheme(theme) {
+        document.documentElement.dataset.theme = theme;
+        this.updatePreferenceControls();
+
+        if (this.chartManager) {
+            this.chartManager.updateTheme(theme === 'dark');
+        }
+    }
+
+    applyTranslations() {
+        document.querySelectorAll('[data-i18n]').forEach(element => {
+            element.textContent = this.t(element.dataset.i18n);
+        });
+
+        document.querySelectorAll('[data-i18n-title]').forEach(element => {
+            element.title = this.t(element.dataset.i18nTitle);
+        });
+
+        document.querySelectorAll('[data-i18n-aria-label]').forEach(element => {
+            element.setAttribute('aria-label', this.t(element.dataset.i18nAriaLabel));
+        });
+
+        this.updatePreferenceControls();
+        this.updateDateRangeText();
+        this.updateFooterTimes();
+    }
+
+    updatePreferenceControls() {
+        const themeToggle = document.getElementById('themeToggle');
+        // const themeToggleLabel = document.getElementById('themeToggleLabel');
+
+        // if (themeToggle && themeToggleLabel) {
+        if (themeToggle) {
+            const nextTheme = this.theme === 'dark' ? 'light' : 'dark';
+            // const nextThemeKey = nextTheme === 'dark' ? 'themeDark' : 'themeLight';
+            const icon = themeToggle.querySelector('i');
+
+            // themeToggle.title = this.t(nextThemeKey);
+            // themeToggle.setAttribute('aria-label', this.t(nextThemeKey));
+            // themeToggleLabel.textContent = this.t(nextThemeKey);
+
+            if (icon) {
+                icon.className = nextTheme === 'dark'
+                    ? 'bi bi-moon-stars me-1'
+                    : 'bi bi-sun me-1';
+            }
+        }
+
+        document.querySelectorAll('[data-language]').forEach(button => {
+            const isActive = button.dataset.language === this.language;
+            button.classList.toggle('active', isActive);
+            button.classList.toggle('btn-light', isActive);
+            button.classList.toggle('btn-outline-light', !isActive);
+            button.setAttribute('aria-pressed', String(isActive));
+        });
+    }
+
+    updateDateRangeText() {
+        const first = this.formatDisplayDate(this.firstDate);
+        const last = this.formatDisplayDate(this.lastDate);
+        const text = this.t('availableData', { first, last });
+
+        ['availableDataText', 'aboutAvailableDataText'].forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.textContent = text;
+            }
+        });
+    }
+
+    updateFooterTimes() {
+        const lastUpdateText = document.getElementById('lastUpdateText');
+        if (lastUpdateText) {
+            lastUpdateText.textContent = this.t('lastUpdate', {
+                time: this.formatDisplayDateTime(lastUpdateText.dataset.updateTime)
+            });
+        }
+
+        const lastRefreshText = document.getElementById('lastRefreshText');
+        const lastRefreshSeparator = document.getElementById('lastRefreshSeparator');
+
+        if (lastRefreshText && lastRefreshSeparator) {
+            if (this.lastRefreshTime) {
+                lastRefreshText.textContent = this.t('lastRefreshed', {
+                    time: this.formatDisplayDateTime(this.lastRefreshTime.toISOString())
+                });
+                lastRefreshSeparator.style.display = '';
+            } else {
+                lastRefreshText.textContent = '';
+                lastRefreshSeparator.style.display = 'none';
+            }
+        }
+    }
+
+    formatDisplayDate(dateString) {
+        const locale = this.language === 'en' ? 'en-GB' : 'nl-NL';
+        const date = new Date(`${dateString}T00:00:00`);
+
+        return new Intl.DateTimeFormat(locale, {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+        }).format(date);
+    }
+
+    formatDisplayDateTime(dateString) {
+        const locale = this.language === 'en' ? 'en-GB' : 'nl-NL';
+        const date = new Date(dateString);
+
+        return new Intl.DateTimeFormat(locale, {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        }).format(date);
     }
 
     setupTouchSupport() {
@@ -287,10 +483,8 @@ class WeatherApp {
     async loadInitialData() {
         try {
             await this.loadWeatherData();
-            await this.loadChartData(7);
-            await this.loadMonthlyStats();
         } catch (error) {
-            this.showMessage('Er is een fout opgetreden bij het laden van de initiële data.', 'error');
+            this.showMessage(this.t('initialLoadError'), 'error');
         }
     }
 
@@ -304,18 +498,19 @@ class WeatherApp {
             const dateStr = this.formatDateForAPI(this.currentDate);
             const data = await this.api.fetchWeatherData(dateStr);
             
+            this.currentWeatherData = data;
             this.updatePrimaryWeatherDisplay(data);
             this.updateDateDisplay();
             
             // Load chart data for the new date
-            await this.loadChartData(7);
+            await this.loadChartData(this.chartDays);
             
             // Load monthly stats for the new month
             await this.loadMonthlyStats();
             
         } catch (error) {
             console.error('Error loading weather data:', error);
-            this.showMessage('Geen weergegevens beschikbaar voor de geselecteerde datum.', 'error');
+            this.showMessage(this.t('noWeatherForDate'), 'error');
         } finally {
             this.hideLoading();
             this.isLoading = false;
@@ -330,16 +525,18 @@ class WeatherApp {
             if (!comparisonDateStr) return;
 
             const data = await this.api.fetchWeatherData(comparisonDateStr);
+            this.currentComparisonData = data;
             this.updateComparisonWeatherDisplay(data);
             
         } catch (error) {
             console.error('Error loading comparison data:', error);
-            this.showMessage('Geen vergelijkingsgegevens beschikbaar voor de geselecteerde datum.', 'error');
+            this.showMessage(this.t('noComparisonForDate'), 'error');
         }
     }
 
     async loadChartData(days) {
         try {
+            this.chartDays = days;
             const endDate = new Date(this.currentDate);
             const startDate = new Date(endDate);
             startDate.setDate(startDate.getDate() - (days - 1));
@@ -368,7 +565,7 @@ class WeatherApp {
             
         } catch (error) {
             console.error('Error loading chart data:', error);
-            this.showMessage('Fout bij laden van grafiekgegevens.', 'error');
+            this.showMessage(this.t('chartLoadError'), 'error');
         }
     }
 
@@ -378,6 +575,9 @@ class WeatherApp {
             const month = this.currentDate.getMonth() + 1;
             
             const stats = await this.api.fetchMonthlyStats(year, month);
+            this.monthlyStats = stats;
+            this.monthlyStatsYear = year;
+            this.monthlyStatsMonth = month;
             this.updateMonthlyStatsDisplay(stats, year, month);
             
         } catch (error) {
@@ -392,7 +592,7 @@ class WeatherApp {
         
         const newDateStr = this.formatDateForAPI(newDate);
         
-        if (newDateStr >= FIRST_DATE && newDateStr <= LAST_DATE) {
+        if (newDateStr >= this.firstDate && newDateStr <= this.lastDate) {
             this.currentDate = newDate;
             const primaryDateEl = document.getElementById('primaryDate');
             if (primaryDateEl) {
@@ -400,9 +600,20 @@ class WeatherApp {
             }
             this.loadWeatherData();
         } else {
-            const message = direction < 0 ? 'Geen eerdere data beschikbaar.' : 'Geen recentere data beschikbaar.';
+            const message = direction < 0 ? this.t('noEarlierData') : this.t('noNewerData');
             this.showMessage(message, 'warning');
         }
+    }
+
+    goToLatestDay() {
+        if (!this.lastDate) return;
+
+        this.currentDate = this.parseAPIDate(this.lastDate);
+        const primaryDateEl = document.getElementById('primaryDate');
+        if (primaryDateEl) {
+            primaryDateEl.value = this.lastDate;
+        }
+        this.loadWeatherData();
     }
 
     toggleComparisonMode() {
@@ -425,14 +636,14 @@ class WeatherApp {
 
     setComparisonDate(date) {
         const dateStr = this.formatDateForAPI(date);
-        if (dateStr >= FIRST_DATE && dateStr <= LAST_DATE) {
+        if (dateStr >= this.firstDate && dateStr <= this.lastDate) {
             const comparisonDateEl = document.getElementById('comparisonDate');
             if (comparisonDateEl) {
                 comparisonDateEl.value = dateStr;
             }
             this.loadComparisonData();
         } else {
-            this.showMessage('Vergelijkingsdatum valt buiten het beschikbare bereik.', 'warning');
+            this.showMessage(this.t('comparisonOutOfRange'), 'warning');
         }
     }
 
@@ -440,7 +651,7 @@ class WeatherApp {
         // Update title
         const titleEl = document.getElementById('primaryDayTitle');
         if (titleEl) {
-            titleEl.innerHTML = `<i class="bi bi-calendar-check me-2"></i>${data.date_formatted}`;
+            titleEl.innerHTML = `<i class="bi bi-calendar-check me-2"></i>${this.formatDisplayDate(data.date)}`;
         }
 
         // Temperature
@@ -451,16 +662,13 @@ class WeatherApp {
         this.updateElement('primaryTempMaxTime', data.temperature.max_hour ? `(${this.formatHour(data.temperature.max_hour)})` : '');
 
         // Wind
-        const windDirection = data.wind.direction_text || '--';
-        const windRotation = data.wind.direction_degrees || 0;
         const windDirectionEl = document.getElementById('primaryWindDirection');
         if (windDirectionEl) {
-            windDirectionEl.innerHTML = 
-                `${windDirection} <div class="wind-indicator" style="transform: rotate(${windRotation}deg);"><i class="bi bi-arrow-up wind-arrow"></i></div>`;
+            windDirectionEl.innerHTML = this.renderWindDirection(data.wind);
         }
         
         this.updateElement('primaryWind', this.formatWindSpeed(data.wind.speed_avg));
-        this.updateElement('primaryWindScale', data.wind.beaufort ? `(${data.wind.beaufort.scale} Bft - ${data.wind.beaufort.description})` : '');
+        this.updateElement('primaryWindScale', this.formatBeaufort(data.wind.beaufort));
         this.updateElement('primaryWindGust', this.formatWindSpeed(data.wind.gust_max));
         this.updateElement('primaryWindMax', this.formatWindSpeed(data.wind.speed_max));
         this.updateElement('primaryWindGustTime', data.wind.gust_max_hour ? `(${this.formatHour(data.wind.gust_max_hour)})` : '');
@@ -491,7 +699,7 @@ class WeatherApp {
         // Update comparison title
         const titleEl = document.getElementById('comparisonDayTitle');
         if (titleEl) {
-            titleEl.innerHTML = `<i class="bi bi-calendar-x me-2"></i>${data.date_formatted}`;
+            titleEl.innerHTML = `<i class="bi bi-calendar-x me-2"></i>${this.formatDisplayDate(data.date)}`;
         }
 
         // Create comparison content
@@ -514,22 +722,22 @@ class WeatherApp {
 
         return `
             <h5 class="text-danger mb-3">
-                <i class="bi bi-thermometer-half me-2"></i>Temperatuur
+                <i class="bi bi-thermometer-half me-2"></i>${this.t('temperature')}
             </h5>
             <div class="row g-3 mb-4">
                 <div class="col-md-4">
                     <div class="weather-metric comparison-metric">
                         <div class="d-flex justify-content-between align-items-center">
-                            <span>Gemiddeld</span>
+                            <span class="metric-label">${this.t('average')}</span>
                             <span class="metric-value comparison-value">${this.formatTemperature(data.temperature.avg)}</span>
                         </div>
-                        <small class="text-muted">Verschil: ${tempDiff}</small>
+                        <small class="text-muted">${this.t('difference')}: ${tempDiff}</small>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="weather-metric comparison-metric">
                         <div class="d-flex justify-content-between align-items-center">
-                            <span>Minimum</span>
+                            <span class="metric-label">${this.t('minimum')} <small class="text-muted">${data.temperature.min_hour ? `(${this.formatHour(data.temperature.min_hour)})` : ''}</small></span>
                             <span class="metric-value comparison-value">${this.formatTemperature(data.temperature.min)}</span>
                         </div>
                     </div>
@@ -537,7 +745,7 @@ class WeatherApp {
                 <div class="col-md-4">
                     <div class="weather-metric comparison-metric">
                         <div class="d-flex justify-content-between align-items-center">
-                            <span>Maximum</span>
+                            <span class="metric-label">${this.t('maximum')} <small class="text-muted">${data.temperature.max_hour ? `(${this.formatHour(data.temperature.max_hour)})` : ''}</small></span>
                             <span class="metric-value comparison-value">${this.formatTemperature(data.temperature.max)}</span>
                         </div>
                     </div>
@@ -545,29 +753,43 @@ class WeatherApp {
             </div>
 
             <h5 class="text-danger mb-3">
-                <i class="bi bi-wind me-2"></i>Wind
+                <i class="bi bi-wind me-2"></i>${this.t('wind')}
             </h5>
             <div class="row g-3 mb-4">
                 <div class="col-md-6">
                     <div class="weather-metric comparison-metric">
                         <div class="d-flex justify-content-between align-items-center">
-                            <span>Richting</span>
-                            <span class="metric-value comparison-value">
-                                ${data.wind.direction_text || '--'} 
-                                <div class="wind-indicator comparison-wind" style="transform: rotate(${data.wind.direction_degrees || 0}deg);">
-                                    <i class="bi bi-arrow-up wind-arrow"></i>
-                                </div>
-                            </span>
+                            <span class="metric-label">${this.t('direction')}</span>
+                            <span class="metric-value comparison-value">${this.renderWindDirection(data.wind, 'comparison-wind')}</span>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-6">
                     <div class="weather-metric comparison-metric">
                         <div class="d-flex justify-content-between align-items-center">
-                            <span>Snelheid</span>
+                            <span class="metric-label">${this.t('speed')} <small class="text-muted">${this.formatBeaufort(data.wind.beaufort)}</small></span>
                             <span class="metric-value comparison-value">${this.formatWindSpeed(data.wind.speed_avg)}</span>
                         </div>
-                        <small class="text-muted">Verschil: ${windDiff}</small>
+                        <small class="text-muted">${this.t('difference')}: ${windDiff}</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <div class="weather-metric comparison-metric">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="metric-label">${this.t('maxGust')} <small class="text-muted">${data.wind.gust_max_hour ? `(${this.formatHour(data.wind.gust_max_hour)})` : ''}</small></span>
+                            <span class="metric-value comparison-value">${this.formatWindSpeed(data.wind.gust_max)}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="weather-metric comparison-metric">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="metric-label">${this.t('maxWindSpeed')} <small class="text-muted">${data.wind.speed_max_hour ? `(${this.formatHour(data.wind.speed_max_hour)})` : ''}</small></span>
+                            <span class="metric-value comparison-value">${this.formatWindSpeed(data.wind.speed_max)}</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -575,26 +797,75 @@ class WeatherApp {
             <div class="row g-3">
                 <div class="col-md-6">
                     <h6 class="text-danger mb-2">
-                        <i class="bi bi-droplet me-2"></i>Neerslag
+                        <i class="bi bi-droplet me-2"></i>${this.t('precipitation')}
                     </h6>
-                    <div class="weather-metric comparison-metric">
+                    <div class="weather-metric comparison-metric mb-2">
                         <div class="d-flex justify-content-between align-items-center">
-                            <span>Hoeveelheid</span>
+                            <span class="metric-label">${this.t('amount')}</span>
                             <span class="metric-value comparison-value">${this.formatPrecipitation(data.precipitation.amount)}</span>
                         </div>
-                        <small class="text-muted">Verschil: ${rainDiff}</small>
+                        <small class="text-muted">${this.t('difference')}: ${rainDiff}</small>
+                    </div>
+                    <div class="weather-metric comparison-metric">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="metric-label">${this.t('duration')}</span>
+                            <span class="metric-value comparison-value">${this.formatDuration(data.precipitation.duration)}</span>
+                        </div>
                     </div>
                 </div>
                 <div class="col-md-6">
-                    <h6 class="text-white mb-2"> <!-- Wit ipv rood -->
-                        <i class="bi bi-brightness-high me-2"></i>Zon
+                    <h6 class="text-danger mb-2">
+                        <i class="bi bi-brightness-high me-2"></i>${this.t('sun')}
                     </h6>
-                    <div class="weather-metric comparison-metric">
+                    <div class="weather-metric comparison-metric mb-2">
                         <div class="d-flex justify-content-between align-items-center">
-                            <span>Duur</span>
+                            <span class="metric-label">${this.t('duration')}</span>
                             <span class="metric-value comparison-value">${this.formatDuration(data.sunshine.duration)}</span>
                         </div>
-                        <small class="text-muted">Verschil: ${sunDiff}</small>
+                        <small class="text-muted">${this.t('difference')}: ${sunDiff}</small>
+                    </div>
+                    <div class="weather-metric comparison-metric">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="metric-label">${this.t('percentage')}</span>
+                            <span class="metric-value comparison-value">${data.sunshine.percentage ? `${data.sunshine.percentage}%` : '--'}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-3 mt-1">
+                <div class="col-md-6">
+                    <h6 class="text-danger mb-2">
+                        <i class="bi bi-speedometer2 me-2"></i>${this.t('pressure')}
+                    </h6>
+                    <div class="weather-metric comparison-metric mb-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="metric-label">${this.t('average')}</span>
+                            <span class="metric-value comparison-value">${this.formatPressure(data.pressure.avg)}</span>
+                        </div>
+                    </div>
+                    <div class="weather-metric comparison-metric">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="metric-label">${this.t('minMax')}</span>
+                            <span class="metric-value comparison-value">${this.formatPressure(data.pressure.min)}/${this.formatPressure(data.pressure.max)}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <h6 class="text-danger mb-2">
+                        <i class="bi bi-moisture me-2"></i>${this.t('humidity')}
+                    </h6>
+                    <div class="weather-metric comparison-metric mb-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="metric-label">${this.t('average')}</span>
+                            <span class="metric-value comparison-value">${data.humidity.avg ? `${data.humidity.avg}%` : '--'}</span>
+                        </div>
+                    </div>
+                    <div class="weather-metric comparison-metric">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="metric-label">${this.t('minMax')}</span>
+                            <span class="metric-value comparison-value">${data.humidity.min || '--'}%/${data.humidity.max || '--'}%</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -602,46 +873,51 @@ class WeatherApp {
     }
 
     updateMonthlyStatsDisplay(stats, year, month) {
-        const monthNames = [
-            'januari', 'februari', 'maart', 'april', 'mei', 'juni',
-            'juli', 'augustus', 'september', 'oktober', 'november', 'december'
-        ];
+        const monthNames = window.AppI18n?.[this.language]?.months || window.AppI18n?.nl?.months || [];
         
         const titleEl = document.getElementById('monthlyStatsTitle');
         if (titleEl) {
             titleEl.innerHTML = 
-                `<i class="bi bi-calendar-month me-2"></i>Statistieken ${monthNames[month - 1]} ${year}`;
+                `<i class="bi bi-calendar-month me-2"></i>${this.t('monthlyStatsTitle', { month: monthNames[month - 1], year })}`;
         }
 
         const content = document.getElementById('monthlyStatsContent');
         if (content) {
             content.innerHTML = `
                 <div class="col-md-3 text-center">
-                    <div class="weather-metric">
+                    <div class="weather-metric monthly-stat">
                         <i class="bi bi-thermometer text-primary fs-3"></i>
-                        <div class="metric-value">${this.formatTemperature(stats.temperature.avg)}</div>
-                        <small>Gem. temperatuur</small>
+                        <div>
+                            <div class="metric-value">${this.formatTemperature(stats.temperature.avg)}</div>
+                            <small>${this.t('avgTemperature')}</small>
+                        </div>
                     </div>
                 </div>
                 <div class="col-md-3 text-center">
-                    <div class="weather-metric">
+                    <div class="weather-metric monthly-stat">
                         <i class="bi bi-droplet-fill text-info fs-3"></i>
-                        <div class="metric-value">${this.formatPrecipitation(stats.precipitation.total)}</div>
-                        <small>Totale neerslag</small>
+                        <div>
+                            <div class="metric-value">${this.formatPrecipitation(stats.precipitation.total)}</div>
+                            <small>${this.t('totalRain')}</small>
+                        </div>
                     </div>
                 </div>
                 <div class="col-md-3 text-center">
-                    <div class="weather-metric">
+                    <div class="weather-metric monthly-stat">
                         <i class="bi bi-sun text-warning fs-3"></i>
-                        <div class="metric-value">${this.formatDuration(stats.sunshine.total)}</div>
-                        <small>Totale zonneschijn</small>
+                        <div>
+                            <div class="metric-value">${this.formatDuration(stats.sunshine.total)}</div>
+                            <small>${this.t('totalSunshine')}</small>
+                        </div>
                     </div>
                 </div>
                 <div class="col-md-3 text-center">
-                    <div class="weather-metric">
+                    <div class="weather-metric monthly-stat">
                         <i class="bi bi-calendar-date text-success fs-3"></i>
-                        <div class="metric-value">${stats.special_days.summer_days}</div>
-                        <small>Zomerse dagen (>20°C)</small>
+                        <div>
+                            <div class="metric-value">${stats.special_days.summer_days}</div>
+                            <small>${this.t('summerDays')}</small>
+                        </div>
                     </div>
                 </div>
             `;
@@ -666,8 +942,8 @@ class WeatherApp {
                 targetDate.setMonth(targetDate.getMonth() - 1);
                 break;
             case 'random':
-                const firstDate = new Date(FIRST_DATE);
-                const lastDate = new Date(LAST_DATE);
+                const firstDate = this.parseAPIDate(this.firstDate);
+                const lastDate = this.parseAPIDate(this.lastDate);
                 const randomTime = firstDate.getTime() + Math.random() * (lastDate.getTime() - firstDate.getTime());
                 targetDate = new Date(randomTime);
                 break;
@@ -675,7 +951,7 @@ class WeatherApp {
 
         if (targetDate) {
             const targetDateStr = this.formatDateForAPI(targetDate);
-            if (targetDateStr >= FIRST_DATE && targetDateStr <= LAST_DATE) {
+            if (targetDateStr >= this.firstDate && targetDateStr <= this.lastDate) {
                 this.currentDate = targetDate;
                 const primaryDateEl = document.getElementById('primaryDate');
                 if (primaryDateEl) {
@@ -683,9 +959,76 @@ class WeatherApp {
                 }
                 this.loadWeatherData();
             } else {
-                this.showMessage('Geselecteerde datum valt buiten het beschikbare bereik.', 'warning');
+                this.showMessage(this.t('selectedOutOfRange'), 'warning');
             }
         }
+    }
+
+    async refreshData(showFeedback = false) {
+        const refreshButton = document.getElementById('refreshData');
+        const currentDateStr = this.formatDateForAPI(this.currentDate);
+        const wasViewingLatestDate = currentDateStr === this.lastDate;
+
+        if (refreshButton) {
+            refreshButton.classList.add('loading');
+            refreshButton.disabled = true;
+            refreshButton.title = this.t('refreshing');
+        }
+
+        try {
+            const previousLastDate = this.lastDate;
+            this.api.clearCache();
+
+            await this.syncDateRange();
+
+            if (wasViewingLatestDate && this.lastDate !== previousLastDate) {
+                this.currentDate = this.parseAPIDate(this.lastDate);
+                const primaryDateEl = document.getElementById('primaryDate');
+                if (primaryDateEl) {
+                    primaryDateEl.value = this.lastDate;
+                }
+            }
+
+            await this.loadWeatherData();
+
+            this.lastRefreshTime = new Date();
+            this.updateFooterTimes();
+
+            if (showFeedback) {
+                const message = this.lastDate !== previousLastDate ? this.t('dataRefreshed') : this.t('noNewData');
+                this.showMessage(message, 'success');
+            }
+        } catch (error) {
+            console.error('Error refreshing data:', error);
+            if (showFeedback) {
+                this.showMessage(this.t('refreshFailed'), 'error');
+            }
+        } finally {
+            if (refreshButton) {
+                refreshButton.classList.remove('loading');
+                refreshButton.disabled = false;
+                refreshButton.title = this.t('refresh');
+            }
+        }
+    }
+
+    async syncDateRange() {
+        const range = await this.api.fetchDateRange();
+
+        if (!range?.first_date || !range?.last_date) return;
+
+        this.firstDate = range.first_date;
+        this.lastDate = range.last_date;
+
+        ['primaryDate', 'comparisonDate'].forEach(id => {
+            const input = document.getElementById(id);
+            if (input) {
+                input.min = this.firstDate;
+                input.max = this.lastDate;
+            }
+        });
+
+        this.updateDateRangeText();
     }
 
     // Utility methods
@@ -708,8 +1051,17 @@ class WeatherApp {
         }
     }
 
+    parseAPIDate(dateString) {
+        const [year, month, day] = dateString.split('-').map(Number);
+        return new Date(year, month - 1, day);
+    }
+
     formatDateForAPI(date) {
-        return date.toISOString().split('T')[0];
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+
+        return `${year}-${month}-${day}`;
     }
 
     formatTemperature(value) {
@@ -725,11 +1077,28 @@ class WeatherApp {
     }
 
     formatDuration(value) {
-        return value !== null && value !== undefined ? `${value} uur` : '-- uur';
+        return value !== null && value !== undefined ? `${value} ${this.t('hours')}` : `-- ${this.t('hours')}`;
     }
 
     formatPressure(value) {
         return value !== null && value !== undefined ? `${value} hPa` : '-- hPa';
+    }
+
+    renderWindDirection(wind, indicatorClass = '') {
+        const direction = wind?.direction_text || '--';
+        const rotation = wind?.direction_degrees || 0;
+        const extraClass = indicatorClass ? ` ${indicatorClass}` : '';
+
+        return `<span class="wind-value">${direction}<span class="wind-indicator${extraClass}" style="transform: rotate(${rotation}deg);"><i class="bi bi-arrow-up wind-arrow"></i></span></span>`;
+    }
+
+    formatBeaufort(beaufort) {
+        if (!beaufort) return '';
+
+        const descriptions = this.t('beaufortDescriptions');
+        const description = descriptions?.[beaufort.scale] || beaufort.description;
+
+        return `(${beaufort.scale} Bft - ${description})`;
     }
 
     formatHour(hour) {
@@ -740,7 +1109,7 @@ class WeatherApp {
     }
 
     parseValue(text) {
-        const match = text.match(/^([\d.]+)/);
+        const match = text.match(/^(-?[\d.]+)/);
         return match ? parseFloat(match[1]) : 0;
     }
 
@@ -782,7 +1151,7 @@ class WeatherApp {
             <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
                 <i class="bi bi-${icon} me-2"></i>
                 ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="${this.t('close')}"></button>
             </div>
         `;
         

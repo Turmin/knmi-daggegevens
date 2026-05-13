@@ -4,6 +4,9 @@ header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: 0');
 
 // Handle preflight requests
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -11,8 +14,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
-require_once '../config/Database.php';
-require_once '../models/WeatherData.php';
+require_once __DIR__ . '/../config/Database.php';
+require_once __DIR__ . '/../models/WeatherData.php';
 
 class WeatherAPI {
     private $weatherData;
@@ -24,16 +27,13 @@ class WeatherAPI {
             $this->weatherData = new WeatherData($db);
         } catch(Exception $e) {
             $this->sendError(500, "Database connection failed");
+            exit;
         }
     }
     
     public function handleRequest() {
         $method = $_SERVER['REQUEST_METHOD'];
-        $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-        $pathParts = explode('/', trim($path, '/'));
-        
-        // Remove 'api' and 'weather.php' from path parts
-        $pathParts = array_slice($pathParts, 2);
+        $pathParts = $this->getPathParts();
         
         try {
             switch($method) {
@@ -47,6 +47,39 @@ class WeatherAPI {
             error_log("API Error: " . $e->getMessage());
             $this->sendError(500, "Internal server error");
         }
+    }
+
+    private function getPathParts() {
+        $pathInfo = $_SERVER['PATH_INFO'] ?? '';
+        if ($pathInfo !== '') {
+            return explode('/', trim($pathInfo, '/'));
+        }
+
+        $requestPath = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+        $requestPath = str_replace('\\', '/', $requestPath ?: '');
+        $scriptNames = [
+            str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? ''),
+            str_replace('\\', '/', $_SERVER['PHP_SELF'] ?? '')
+        ];
+
+        foreach ($scriptNames as $scriptName) {
+            if ($scriptName !== '' && substr($scriptName, -strlen('weather.php')) !== 'weather.php') {
+                continue;
+            }
+
+            if ($scriptName !== '' && strpos($requestPath, $scriptName) === 0) {
+                $extraPath = substr($requestPath, strlen($scriptName));
+                return $extraPath === '' ? [] : explode('/', trim($extraPath, '/'));
+            }
+        }
+
+        $scriptPosition = strpos($requestPath, 'weather.php');
+        if ($scriptPosition !== false) {
+            $extraPath = substr($requestPath, $scriptPosition + strlen('weather.php'));
+            return $extraPath === '' ? [] : explode('/', trim($extraPath, '/'));
+        }
+
+        return [];
     }
     
     private function handleGet($pathParts) {

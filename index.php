@@ -24,7 +24,7 @@ try {
 $defaultDate = min(date('Y-m-d'), $lastDate);
 ?>
 <!DOCTYPE html>
-<html lang="nl">
+<html lang="nl" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -32,6 +32,16 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
     <link rel="icon" type="image/x-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14'>☀️</text></svg>">
     <meta name="description" content="Historische KNMI daggegevens met vergelijkingsfunctie en interactieve grafieken">
     <meta name="keywords" content="knmi, weer, weerstatistieken, temperatuur, neerslag, verdamping, zonneschijnduur, straling, bedekkingsgraad, zicht, luchtvochtigheid">
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('knmi-theme');
+            const savedLanguage = localStorage.getItem('knmi-language') || 'nl';
+            const preferredTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+
+            document.documentElement.dataset.theme = savedTheme || preferredTheme;
+            document.documentElement.lang = savedLanguage;
+        })();
+    </script>
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
@@ -47,7 +57,7 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.1/font/bootstrap-icons.min.css" rel="stylesheet">
     
     <!-- Custom Styles -->
-    <link rel="stylesheet" href="css/modern-style.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="css/modern-style.css?v=<?php echo filemtime(__DIR__ . '/css/modern-style.css'); ?>">
 </head>
 <body>
     <!-- Loading Screen -->
@@ -56,8 +66,8 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
             <div class="weather-spinner">
                 <i class="bi bi-cloud-sun"></i>
             </div>
-            <h3>KNMI Daggegevens</h3>
-            <p>Weerdata wordt geladen...</p>
+            <h3 data-i18n="appName">KNMI Daggegevens</h3>
+            <p data-i18n="loadingApp">Weerdata wordt geladen...</p>
         </div>
     </div>
 
@@ -66,13 +76,29 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
         <div class="row mb-4">
             <div class="col-12">
                 <div class="weather-card">
-                    <div class="card-header text-center">
-                        <h1 class="mb-0">
-                            <i class="bi bi-cloud-sun me-2"></i>
-                            KNMI Daggegevens
-                        </h1>
-                        <p class="mb-0 mt-2">Historische weerdata van Nederland • Meetstation De Bilt</p>
-                        <small class="text-light">Beschikbare data: <?php echo date('d-m-Y', strtotime($firstDate)); ?> tot <?php echo date('d-m-Y', strtotime($lastDate)); ?></small>
+                    <div class="card-header">
+                        <div class="app-header">
+                            <div class="app-title">
+                                <h1 class="mb-0">
+                                    <i class="bi bi-cloud-sun me-2"></i>
+                                    <span data-i18n="appName">KNMI Daggegevens</span>
+                                </h1>
+                                <p class="mb-0 mt-2" data-i18n="tagline">Historische weerdata van Nederland - Meetstation De Bilt</p>
+                                <small class="text-light" id="availableDataText" data-first-date="<?php echo $firstDate; ?>" data-last-date="<?php echo $lastDate; ?>">Beschikbare data: <?php echo date('d-m-Y', strtotime($firstDate)); ?> tot <?php echo date('d-m-Y', strtotime($lastDate)); ?></small>
+                            </div>
+                            <div class="preference-controls" aria-label="Weergave-instellingen">
+                                <div class="btn-group btn-group-sm" role="group" aria-label="Theme">
+                                    <button type="button" class="btn btn-outline-light" id="themeToggle" data-i18n-title="themeDark" aria-label="Schakel donker thema in">
+                                        <i class="bi bi-moon-stars me-1"></i>
+                                        <span id="themeToggleLabel" data-i18n="themeDark">Donker</span>
+                                    </button>
+                                </div>
+                                <div class="btn-group btn-group-sm" role="group" aria-label="Language">
+                                    <button type="button" class="btn btn-light active" data-language="nl" aria-pressed="true">NL</button>
+                                    <button type="button" class="btn btn-outline-light" data-language="en" aria-pressed="false">EN</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -83,7 +109,7 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
             <div class="col-12">
                 <div class="date-navigation">
                     <div class="row g-3 align-items-center">
-                        <div class="col-md-6">
+                        <div class="col-md-5">
                             <div class="input-group">
                                 <span class="input-group-text">
                                     <i class="bi bi-calendar-date"></i>
@@ -96,13 +122,19 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
                                        max="<?php echo $lastDate; ?>">
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <div class="btn-group w-100" role="group">
-                                <button type="button" class="btn btn-outline-primary btn-custom" id="prevDay" title="Vorige dag (Ctrl+←)">
-                                    <i class="bi bi-chevron-left"></i> <span class="d-none d-sm-inline">Vorige dag</span>
+                        <div class="col-md-7">
+                            <div class="btn-group w-100 date-action-group" role="group" aria-label="Datum navigatie">
+                                <button type="button" class="btn btn-outline-primary btn-custom" id="prevDay" title="Vorige dag (Ctrl+←)" data-i18n-title="prevDay">
+                                    <i class="bi bi-chevron-left"></i> <span class="d-none d-sm-inline" data-i18n="prevDay">Vorige dag</span>
                                 </button>
-                                <button type="button" class="btn btn-outline-primary btn-custom" id="nextDay" title="Volgende dag (Ctrl+→)">
-                                    <span class="d-none d-sm-inline">Volgende dag</span> <i class="bi bi-chevron-right"></i>
+                                <button type="button" class="btn btn-outline-primary btn-custom" id="latestDay" title="Laatste dag (Ctrl+T)" data-i18n-title="latestDay">
+                                    <i class="bi bi-calendar-check"></i> <span class="d-none d-sm-inline" data-i18n="latestDay">Laatste dag</span>
+                                </button>
+                                <button type="button" class="btn btn-outline-primary btn-custom" id="nextDay" title="Volgende dag (Ctrl+→)" data-i18n-title="nextDay">
+                                    <span class="d-none d-sm-inline" data-i18n="nextDay">Volgende dag</span> <i class="bi bi-chevron-right"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-custom" id="refreshData" data-i18n-title="refresh" aria-label="Ververs data">
+                                    <i class="bi bi-arrow-clockwise"></i>
                                 </button>
                             </div>
                         </div>
@@ -116,16 +148,16 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
             <div class="col-12">
                 <div class="comparison-toggle">
                     <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" id="comparisonMode" title="Vergelijk twee datums (Ctrl+C)">
+                        <input class="form-check-input" type="checkbox" id="comparisonMode" title="Vergelijk twee datums (Ctrl+C)" data-i18n-title="comparisonMode">
                         <label class="form-check-label fw-bold" for="comparisonMode">
-                            <i class="bi bi-arrow-left-right me-2"></i>Vergelijkingsmodus
-                            <small class="text-muted ms-2">(Vergelijk weerdata van twee verschillende dagen)</small>
+                            <i class="bi bi-arrow-left-right me-2"></i><span data-i18n="comparisonMode">Vergelijkingsmodus</span>
+                            <small class="text-muted ms-2" data-i18n="comparisonHint">(Vergelijk weerdata van twee verschillende dagen)</small>
                         </label>
                     </div>
                     <div id="comparisonDatePicker" class="mt-3" style="display: none;">
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <label class="form-label">Vergelijk met:</label>
+                                <label class="form-label" data-i18n="compareWith">Vergelijk met:</label>
                                 <input type="date" 
                                        class="form-control" 
                                        id="comparisonDate" 
@@ -134,14 +166,14 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
                             </div>
                             <div class="col-md-6 d-flex align-items-end">
                                 <div class="btn-group">
-                                    <button class="btn btn-success btn-custom" id="quickCompare" title="Vergelijk met gisteren">
-                                        <i class="bi bi-lightning me-1"></i>Gisteren
+                                    <button class="btn btn-success btn-custom" id="quickCompare" title="Vergelijk met gisteren" data-i18n-title="yesterday">
+                                        <i class="bi bi-lightning me-1"></i><span data-i18n="yesterday">Gisteren</span>
                                     </button>
-                                    <button class="btn btn-info btn-custom" id="weekCompare" title="Vergelijk met vorige week">
-                                        <i class="bi bi-calendar-week me-1"></i>Vorige week
+                                    <button class="btn btn-info btn-custom" id="weekCompare" title="Vergelijk met vorige week" data-i18n-title="previousWeek">
+                                        <i class="bi bi-calendar-week me-1"></i><span data-i18n="previousWeek">Vorige week</span>
                                     </button>
-                                    <button class="btn btn-warning btn-custom" id="yearCompare" title="Vergelijk met vorig jaar">
-                                        <i class="bi bi-calendar me-1"></i>Vorig jaar
+                                    <button class="btn btn-warning btn-custom" id="yearCompare" title="Vergelijk met vorig jaar" data-i18n-title="previousYear">
+                                        <i class="bi bi-calendar me-1"></i><span data-i18n="previousYear">Vorig jaar</span>
                                     </button>
                                 </div>
                             </div>
@@ -157,9 +189,9 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
         <!-- Loading Spinner -->
         <div class="loading-spinner text-center" id="loadingSpinner" style="display: none;">
             <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Laden...</span>
+                <span class="visually-hidden" data-i18n="loading">Laden...</span>
             </div>
-            <p class="mt-2">Weergegevens ophalen...</p>
+            <p class="mt-2" data-i18n="fetchingWeather">Weergegevens ophalen...</p>
         </div>
 
         <!-- Weather Data -->
@@ -170,20 +202,20 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
                     <div class="card-header">
                         <h3 class="mb-0" id="primaryDayTitle">
                             <i class="bi bi-calendar-check me-2"></i>
-                            <span class="loading-placeholder">Datum wordt geladen...</span>
+                            <span class="loading-placeholder" data-i18n="dateLoading">Datum wordt geladen...</span>
                         </h3>
-                        <small>Meetstation: De Bilt (260)</small>
+                        <small data-i18n="station">Meetstation: De Bilt (260)</small>
                     </div>
                     <div class="card-body p-4">
                         <!-- Temperature Section -->
                         <h5 class="text-primary mb-3">
-                            <i class="bi bi-thermometer-half me-2"></i>Temperatuur
+                            <i class="bi bi-thermometer-half me-2"></i><span data-i18n="temperature">Temperatuur</span>
                         </h5>
                         <div class="row g-3 mb-4">
                             <div class="col-md-4">
                                 <div class="weather-metric">
                                     <div class="d-flex justify-content-between align-items-center">
-                                        <span>Gemiddeld</span>
+                                        <span class="metric-label" data-i18n="average">Gemiddeld</span>
                                         <span class="metric-value" id="primaryTemp">
                                             <div class="loading-placeholder">--°C</div>
                                         </span>
@@ -193,7 +225,7 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
                             <div class="col-md-4">
                                 <div class="weather-metric">
                                     <div class="d-flex justify-content-between align-items-center">
-                                        <span>Minimum <small id="primaryTempMinTime" class="text-muted"></small></span>
+                                        <span class="metric-label"><span data-i18n="minimum">Minimum</span> <small id="primaryTempMinTime" class="text-muted"></small></span>
                                         <span class="metric-value" id="primaryTempMin">
                                             <div class="loading-placeholder">--°C</div>
                                         </span>
@@ -203,7 +235,7 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
                             <div class="col-md-4">
                                 <div class="weather-metric">
                                     <div class="d-flex justify-content-between align-items-center">
-                                        <span>Maximum <small id="primaryTempMaxTime" class="text-muted"></small></span>
+                                        <span class="metric-label"><span data-i18n="maximum">Maximum</span> <small id="primaryTempMaxTime" class="text-muted"></small></span>
                                         <span class="metric-value" id="primaryTempMax">
                                             <div class="loading-placeholder">--°C</div>
                                         </span>
@@ -214,13 +246,13 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
 
                         <!-- Wind Section -->
                         <h5 class="text-primary mb-3">
-                            <i class="bi bi-wind me-2"></i>Wind
+                            <i class="bi bi-wind me-2"></i><span data-i18n="wind">Wind</span>
                         </h5>
                         <div class="row g-3 mb-4">
                             <div class="col-md-6">
                                 <div class="weather-metric">
                                     <div class="d-flex justify-content-between align-items-center">
-                                        <span>Richting</span>
+                                        <span class="metric-label" data-i18n="direction">Richting</span>
                                         <span class="metric-value" id="primaryWindDirection">
                                             <div class="loading-placeholder">-- <div class="wind-indicator"><i class="bi bi-arrow-up wind-arrow"></i></div></div>
                                         </span>
@@ -230,7 +262,7 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
                             <div class="col-md-6">
                                 <div class="weather-metric">
                                     <div class="d-flex justify-content-between align-items-center">
-                                        <span>Snelheid <small id="primaryWindScale" class="text-muted"></small></span>
+                                        <span class="metric-label"><span data-i18n="speed">Snelheid</span> <small id="primaryWindScale" class="text-muted"></small></span>
                                         <span class="metric-value" id="primaryWind">
                                             <div class="loading-placeholder">-- km/h</div>
                                         </span>
@@ -244,7 +276,7 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
                             <div class="col-md-6">
                                 <div class="weather-metric">
                                     <div class="d-flex justify-content-between align-items-center">
-                                        <span>Max windstoot <small id="primaryWindGustTime" class="text-muted"></small></span>
+                                        <span class="metric-label"><span data-i18n="maxGust">Max windstoot</span> <small id="primaryWindGustTime" class="text-muted"></small></span>
                                         <span class="metric-value" id="primaryWindGust">
                                             <div class="loading-placeholder">-- km/h</div>
                                         </span>
@@ -254,7 +286,7 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
                             <div class="col-md-6">
                                 <div class="weather-metric">
                                     <div class="d-flex justify-content-between align-items-center">
-                                        <span>Max windsnelheid <small id="primaryWindMaxTime" class="text-muted"></small></span>
+                                        <span class="metric-label"><span data-i18n="maxWindSpeed">Max windsnelheid</span> <small id="primaryWindMaxTime" class="text-muted"></small></span>
                                         <span class="metric-value" id="primaryWindMax">
                                             <div class="loading-placeholder">-- km/h</div>
                                         </span>
@@ -267,11 +299,11 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
                         <div class="row g-3 mb-4">
                             <div class="col-md-6">
                                 <h6 class="text-primary mb-2">
-                                    <i class="bi bi-droplet me-2"></i>Neerslag
+                                    <i class="bi bi-droplet me-2"></i><span data-i18n="precipitation">Neerslag</span>
                                 </h6>
                                 <div class="weather-metric mb-2">
                                     <div class="d-flex justify-content-between align-items-center">
-                                        <span>Hoeveelheid</span>
+                                        <span class="metric-label" data-i18n="amount">Hoeveelheid</span>
                                         <span class="metric-value" id="primaryRain">
                                             <div class="loading-placeholder">-- mm</div>
                                         </span>
@@ -279,7 +311,7 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
                                 </div>
                                 <div class="weather-metric">
                                     <div class="d-flex justify-content-between align-items-center">
-                                        <span>Duur</span>
+                                        <span class="metric-label" data-i18n="duration">Duur</span>
                                         <span class="metric-value" id="primaryRainDuration">
                                             <div class="loading-placeholder">-- uur</div>
                                         </span>
@@ -288,11 +320,11 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
                             </div>
                             <div class="col-md-6">
                                 <h6 class="text-primary mb-2">
-                                    <i class="bi bi-brightness-high me-2"></i>Zon
+                                    <i class="bi bi-brightness-high me-2"></i><span data-i18n="sun">Zon</span>
                                 </h6>
                                 <div class="weather-metric mb-2">
                                     <div class="d-flex justify-content-between align-items-center">
-                                        <span>Duur</span>
+                                        <span class="metric-label" data-i18n="duration">Duur</span>
                                         <span class="metric-value" id="primarySun">
                                             <div class="loading-placeholder">-- uur</div>
                                         </span>
@@ -300,7 +332,7 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
                                 </div>
                                 <div class="weather-metric">
                                     <div class="d-flex justify-content-between align-items-center">
-                                        <span>Percentage</span>
+                                        <span class="metric-label" data-i18n="percentage">Percentage</span>
                                         <span class="metric-value" id="primarySunPercentage">
                                             <div class="loading-placeholder">--%</div>
                                         </span>
@@ -313,11 +345,11 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <h6 class="text-primary mb-2">
-                                    <i class="bi bi-speedometer2 me-2"></i>Luchtdruk
+                                    <i class="bi bi-speedometer2 me-2"></i><span data-i18n="pressure">Luchtdruk</span>
                                 </h6>
                                 <div class="weather-metric mb-2">
                                     <div class="d-flex justify-content-between align-items-center">
-                                        <span>Gemiddeld</span>
+                                        <span class="metric-label" data-i18n="average">Gemiddeld</span>
                                         <span class="metric-value" id="primaryPressure">
                                             <div class="loading-placeholder">-- hPa</div>
                                         </span>
@@ -325,7 +357,7 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
                                 </div>
                                 <div class="weather-metric">
                                     <div class="d-flex justify-content-between align-items-center">
-                                        <span>Min/Max</span>
+                                        <span class="metric-label" data-i18n="minMax">Min/Max</span>
                                         <span class="metric-value" id="primaryPressureRange">
                                             <div class="loading-placeholder">--/-- hPa</div>
                                         </span>
@@ -334,11 +366,11 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
                             </div>
                             <div class="col-md-6">
                                 <h6 class="text-primary mb-2">
-                                    <i class="bi bi-moisture me-2"></i>Luchtvochtigheid
+                                    <i class="bi bi-moisture me-2"></i><span data-i18n="humidity">Luchtvochtigheid</span>
                                 </h6>
                                 <div class="weather-metric mb-2">
                                     <div class="d-flex justify-content-between align-items-center">
-                                        <span>Gemiddeld</span>
+                                        <span class="metric-label" data-i18n="average">Gemiddeld</span>
                                         <span class="metric-value" id="primaryHumidity">
                                             <div class="loading-placeholder">--%</div>
                                         </span>
@@ -346,7 +378,7 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
                                 </div>
                                 <div class="weather-metric">
                                     <div class="d-flex justify-content-between align-items-center">
-                                        <span>Min/Max</span>
+                                        <span class="metric-label" data-i18n="minMax">Min/Max</span>
                                         <span class="metric-value" id="primaryHumidityRange">
                                             <div class="loading-placeholder">--/--%</div>
                                         </span>
@@ -361,12 +393,12 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
             <!-- Comparison Day Card (Hidden by default) -->
             <div class="col-lg-6 mb-4" id="comparisonCard" style="display: none;">
                 <div class="weather-card fade-in comparison-card">
-                    <div class="card-header" style="background: linear-gradient(45deg, #ff6b6b, #ee5a24);">
+                    <div class="card-header comparison-header">
                         <h3 class="mb-0" id="comparisonDayTitle">
                             <i class="bi bi-calendar-x me-2"></i>
-                            <span class="loading-placeholder">Vergelijkingsdatum wordt geladen...</span>
+                            <span class="loading-placeholder" data-i18n="comparisonDateLoading">Vergelijkingsdatum wordt geladen...</span>
                         </h3>
-                        <small>Vergelijking • Meetstation: De Bilt (260)</small>
+                        <small data-i18n="comparisonStation">Vergelijking - Meetstation: De Bilt (260)</small>
                     </div>
                     <div class="card-body p-4" id="comparisonContent">
                         <!-- Dynamic comparison content will be loaded here -->
@@ -382,28 +414,28 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
                     <div class="card-header">
                         <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center">
                             <h4 class="mb-2 mb-md-0">
-                                <i class="bi bi-graph-up me-2"></i>Statistieken
-                                <small class="text-light">Laatste 7 dagen</small>
+                                <i class="bi bi-graph-up me-2"></i><span data-i18n="statistics">Statistieken</span>
+                                <small class="text-light" data-i18n="last7Days">Laatste 7 dagen</small>
                             </h4>
                             <div class="btn-group flex-wrap" role="group">
                                 <input type="radio" class="btn-check" name="chartType" id="tempChart" autocomplete="off" checked>
-                                <label class="btn btn-outline-light btn-sm" for="tempChart" title="Temperatuurverloop">
-                                    <i class="bi bi-thermometer me-1"></i>Temperatuur
+                                <label class="btn btn-outline-light btn-sm" for="tempChart" title="Temperatuurverloop" data-i18n-title="chartTemp">
+                                    <i class="bi bi-thermometer me-1"></i><span data-i18n="chartTemp">Temperatuur</span>
                                 </label>
 
                                 <input type="radio" class="btn-check" name="chartType" id="rainChart" autocomplete="off">
-                                <label class="btn btn-outline-light btn-sm" for="rainChart" title="Neerslagverloop">
-                                    <i class="bi bi-droplet me-1"></i>Neerslag
+                                <label class="btn btn-outline-light btn-sm" for="rainChart" title="Neerslagverloop" data-i18n-title="chartRain">
+                                    <i class="bi bi-droplet me-1"></i><span data-i18n="chartRain">Neerslag</span>
                                 </label>
 
                                 <input type="radio" class="btn-check" name="chartType" id="windChart" autocomplete="off">
-                                <label class="btn btn-outline-light btn-sm" for="windChart" title="Windsnelheidverloop">
-                                    <i class="bi bi-wind me-1"></i>Wind
+                                <label class="btn btn-outline-light btn-sm" for="windChart" title="Windsnelheidverloop" data-i18n-title="chartWind">
+                                    <i class="bi bi-wind me-1"></i><span data-i18n="chartWind">Wind</span>
                                 </label>
 
                                 <input type="radio" class="btn-check" name="chartType" id="sunChart" autocomplete="off">
-                                <label class="btn btn-outline-light btn-sm" for="sunChart" title="Zonnesschijnverloop">
-                                    <i class="bi bi-sun me-1"></i>Zon
+                                <label class="btn btn-outline-light btn-sm" for="sunChart" title="Zonnesschijnverloop" data-i18n-title="chartSun">
+                                    <i class="bi bi-sun me-1"></i><span data-i18n="chartSun">Zon</span>
                                 </label>
                             </div>
                         </div>
@@ -414,9 +446,9 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
                         </div>
                         <div class="chart-controls mt-3 text-center">
                             <div class="btn-group btn-group-sm" role="group">
-                                <button type="button" class="btn btn-outline-secondary" id="chart7Days">7 dagen</button>
-                                <button type="button" class="btn btn-outline-secondary" id="chart30Days">30 dagen</button>
-                                <button type="button" class="btn btn-outline-secondary" id="chartYear">Dit jaar</button>
+                                <button type="button" class="btn btn-outline-secondary" id="chart7Days" data-i18n="days7">7 dagen</button>
+                                <button type="button" class="btn btn-outline-secondary" id="chart30Days" data-i18n="days30">30 dagen</button>
+                                <button type="button" class="btn btn-outline-secondary" id="chartYear" data-i18n="thisYear">Dit jaar</button>
                             </div>
                         </div>
                     </div>
@@ -430,7 +462,7 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
                 <div class="weather-card">
                     <div class="card-header">
                         <h4 class="mb-0" id="monthlyStatsTitle">
-                            <i class="bi bi-calendar-month me-2"></i>Maandstatistieken
+                            <i class="bi bi-calendar-month me-2"></i><span data-i18n="monthlyStats">Maandstatistieken</span>
                         </h4>
                     </div>
                     <div class="card-body">
@@ -445,36 +477,36 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
         <!-- Quick Actions -->
         <div class="row mt-4">
             <div class="col-12">
-                <div class="weather-card">
+                <div class="weather-card quick-actions-card">
                     <div class="card-header">
                         <h4 class="mb-0">
-                            <i class="bi bi-lightning me-2"></i>Snelle Acties
+                            <i class="bi bi-lightning me-2"></i><span data-i18n="quickActions">Snelle acties</span>
                         </h4>
                     </div>
                     <div class="card-body">
-                        <div class="row g-3">
-                            <div class="col-md-3 text-center">
+                        <div class="row g-2 quick-actions-grid">
+                            <div class="col-6 col-md-3 text-center">
                                 <button class="btn btn-outline-primary w-100 quick-action" data-action="yesterday">
                                     <i class="bi bi-skip-backward fs-4"></i>
-                                    <div class="mt-2">Gisteren</div>
+                                    <div class="mt-2" data-i18n="yesterday">Gisteren</div>
                                 </button>
                             </div>
-                            <div class="col-md-3 text-center">
+                            <div class="col-6 col-md-3 text-center">
                                 <button class="btn btn-outline-primary w-100 quick-action" data-action="lastWeek">
                                     <i class="bi bi-calendar-week fs-4"></i>
-                                    <div class="mt-2">Vorige week</div>
+                                    <div class="mt-2" data-i18n="previousWeek">Vorige week</div>
                                 </button>
                             </div>
-                            <div class="col-md-3 text-center">
+                            <div class="col-6 col-md-3 text-center">
                                 <button class="btn btn-outline-primary w-100 quick-action" data-action="lastMonth">
                                     <i class="bi bi-calendar-month fs-4"></i>
-                                    <div class="mt-2">Vorige maand</div>
+                                    <div class="mt-2" data-i18n="lastMonth">Vorige maand</div>
                                 </button>
                             </div>
-                            <div class="col-md-3 text-center">
+                            <div class="col-6 col-md-3 text-center">
                                 <button class="btn btn-outline-primary w-100 quick-action" data-action="random">
                                     <i class="bi bi-shuffle fs-4"></i>
-                                    <div class="mt-2">Willekeurige dag</div>
+                                    <div class="mt-2" data-i18n="randomDay">Willekeurige dag</div>
                                 </button>
                             </div>
                         </div>
@@ -488,13 +520,15 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
             <div class="col-12">
                 <div class="text-center text-muted">
                     <p class="mb-2">
-                        <strong>KNMI Daggegevens Interface</strong> • 
-                        Data: <a href="https://knmi.nl" target="_blank" rel="noopener" class="text-decoration-none">Koninklijk Nederlands Meteorologisch Instituut</a>
+                        <strong data-i18n="appName">KNMI Daggegevens</strong> •
+                        <span data-i18n="footerData">Data:</span> <a href="https://knmi.nl" target="_blank" rel="noopener" class="text-decoration-none">Koninklijk Nederlands Meteorologisch Instituut</a>
                     </p>
                     <p class="small">
-                        Laatste update: <?php echo date('d-m-Y H:i'); ?> • 
-                        <a href="javascript:void(0)" id="aboutBtn" class="text-decoration-none">Over deze website</a> • 
-                        <a href="javascript:void(0)" id="helpBtn" class="text-decoration-none">Help & Sneltoetsen</a>
+                        <span id="lastUpdateText" data-update-time="<?php echo date('c'); ?>">Laatste update: <?php echo date('d-m-Y H:i'); ?></span> •
+                        <span id="lastRefreshText"></span>
+                        <span id="lastRefreshSeparator" style="display: none;"> • </span>
+                        <a href="javascript:void(0)" id="aboutBtn" class="text-decoration-none" data-i18n="aboutSite">Over deze website</a> •
+                        <a href="javascript:void(0)" id="helpBtn" class="text-decoration-none" data-i18n="helpShortcuts">Help & Sneltoetsen</a>
                     </p>
                 </div>
             </div>
@@ -507,22 +541,22 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Over KNMI Daggegevens</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <h5 class="modal-title" data-i18n="aboutTitle">Over KNMI Daggegevens</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" data-i18n-aria-label="close"></button>
                 </div>
                 <div class="modal-body">
-                    <p>Deze moderne interface toont historische weergegevens van het KNMI (Koninklijk Nederlands Meteorologisch Instituut) voor meetstation De Bilt.</p>
+                    <p data-i18n="aboutText">Deze interface toont historische weergegevens van het KNMI (Koninklijk Nederlands Meteorologisch Instituut) voor meetstation De Bilt.</p>
                     
-                    <h6>Features:</h6>
+                    <h6 data-i18n="features">Functies:</h6>
                     <ul class="list-unstyled">
-                        <li><i class="bi bi-check-circle text-success me-2"></i>Responsive design voor alle apparaten</li>
-                        <li><i class="bi bi-check-circle text-success me-2"></i>Vergelijk twee datums naast elkaar</li>
-                        <li><i class="bi bi-check-circle text-success me-2"></i>Interactieve grafieken en statistieken</li>
-                        <li><i class="bi bi-check-circle text-success me-2"></i>Sneltoetsen voor navigatie</li>
-                        <li><i class="bi bi-check-circle text-success me-2"></i>Maandelijkse statistieken</li>
+                        <li><i class="bi bi-check-circle text-success me-2"></i><span data-i18n="featureResponsive">Responsive ontwerp voor alle apparaten</span></li>
+                        <li><i class="bi bi-check-circle text-success me-2"></i><span data-i18n="featureCompare">Vergelijk twee datums naast elkaar</span></li>
+                        <li><i class="bi bi-check-circle text-success me-2"></i><span data-i18n="featureCharts">Interactieve grafieken en statistieken</span></li>
+                        <li><i class="bi bi-check-circle text-success me-2"></i><span data-i18n="featureShortcuts">Sneltoetsen voor navigatie</span></li>
+                        <li><i class="bi bi-check-circle text-success me-2"></i><span data-i18n="featureMonthly">Maandelijkse statistieken</span></li>
                     </ul>
                     
-                    <p class="text-muted small mt-3">
+                    <p class="text-muted small mt-3" id="aboutAvailableDataText">
                         Beschikbare data: <?php echo date('d-m-Y', strtotime($firstDate)); ?> tot <?php echo date('d-m-Y', strtotime($lastDate)); ?>
                     </p>
                 </div>
@@ -535,42 +569,42 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Help & Sneltoetsen</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <h5 class="modal-title" data-i18n="helpTitle">Help & Sneltoetsen</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" data-i18n-aria-label="close"></button>
                 </div>
                 <div class="modal-body">
-                    <h6>Sneltoetsen:</h6>
+                    <h6 data-i18n="shortcuts">Sneltoetsen:</h6>
                     <div class="table-responsive">
                         <table class="table table-sm">
-                            <tr><td><kbd>Ctrl</kbd> + <kbd>←</kbd></td><td>Vorige dag</td></tr>
-                            <tr><td><kbd>Ctrl</kbd> + <kbd>→</kbd></td><td>Volgende dag</td></tr>
-                            <tr><td><kbd>Ctrl</kbd> + <kbd>C</kbd></td><td>Vergelijkingsmodus</td></tr>
-                            <tr><td><kbd>Ctrl</kbd> + <kbd>T</kbd></td><td>Ga naar vandaag</td></tr>
+                            <tr><td><kbd>Ctrl</kbd> + <kbd>←</kbd></td><td data-i18n="shortcutPrev">Vorige dag</td></tr>
+                            <tr><td><kbd>Ctrl</kbd> + <kbd>→</kbd></td><td data-i18n="shortcutNext">Volgende dag</td></tr>
+                            <tr><td><kbd>Ctrl</kbd> + <kbd>C</kbd></td><td data-i18n="shortcutCompare">Vergelijkingsmodus</td></tr>
+                            <tr><td><kbd>Ctrl</kbd> + <kbd>T</kbd></td><td data-i18n="shortcutLatest">Ga naar laatste dag</td></tr>
                         </table>
                     </div>
                     
-                    <h6>Navigatie:</h6>
+                    <h6 data-i18n="navigation">Navigatie:</h6>
                     <ul class="list-unstyled">
-                        <li><i class="bi bi-phone me-2"></i>Mobiel: veeg links/rechts voor vorige/volgende dag</li>
-                        <li><i class="bi bi-mouse me-2"></i>Klik op datumpicker voor specifieke datum</li>
+                        <li><i class="bi bi-phone me-2"></i><span data-i18n="mobileSwipe">Mobiel: veeg links/rechts voor vorige/volgende dag</span></li>
+                        <li><i class="bi bi-mouse me-2"></i><span data-i18n="datePickerHelp">Klik op de datumpicker voor een specifieke datum</span></li>
                     </ul>
 
-                    <h6>Afkortingen windrichting:</h6>
+                    <h6 data-i18n="windDirectionShortcuts">Afkortingen windrichting:</h6>
                     <div class="row">
                         <div class="col-6">
                             <small>
-                                <strong>N:</strong> Noord<br>
-                                <strong>NO:</strong> Noordoost<br>
-                                <strong>O:</strong> Oost<br>
-                                <strong>ZO:</strong> Zuidoost<br>
+                                <strong>N:</strong> <span data-i18n="north">Noord</span><br>
+                                <strong>NO:</strong> <span data-i18n="northeast">Noordoost</span><br>
+                                <strong>O:</strong> <span data-i18n="east">Oost</span><br>
+                                <strong>ZO:</strong> <span data-i18n="southeast">Zuidoost</span><br>
                             </small>
                         </div>
                         <div class="col-6">
                             <small>
-                                <strong>Z:</strong> Zuid<br>
-                                <strong>ZW:</strong> Zuidwest<br>
-                                <strong>W:</strong> West<br>
-                                <strong>NW:</strong> Noordwest<br>
+                                <strong>Z:</strong> <span data-i18n="south">Zuid</span><br>
+                                <strong>ZW:</strong> <span data-i18n="southwest">Zuidwest</span><br>
+                                <strong>W:</strong> <span data-i18n="west">West</span><br>
+                                <strong>NW:</strong> <span data-i18n="northwest">Noordwest</span><br>
                             </small>
                         </div>
                     </div>
@@ -592,9 +626,10 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
     
     <!-- Custom JavaScript -->
-    <script src="js/weather-api.js"></script>
-    <script src="js/weather-app.js"></script>
-    <script src="js/chart-manager.js"></script>
+    <script src="js/app-i18n.js?v=<?php echo filemtime(__DIR__ . '/js/app-i18n.js'); ?>"></script>
+    <script src="js/weather-api.js?v=<?php echo filemtime(__DIR__ . '/js/weather-api.js'); ?>"></script>
+    <script src="js/weather-app.js?v=<?php echo filemtime(__DIR__ . '/js/weather-app.js'); ?>"></script>
+    <script src="js/chart-manager.js?v=<?php echo filemtime(__DIR__ . '/js/chart-manager.js'); ?>"></script>
     
     <!-- PWA Service Worker -->
     <script>
@@ -635,12 +670,16 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
         });
 
         function showInstallPrompt() {
+            const language = localStorage.getItem('knmi-language') || 'nl';
+            const t = window.weatherApp
+                ? window.weatherApp.t.bind(window.weatherApp)
+                : (key) => window.AppI18n?.[language]?.[key] || window.AppI18n?.nl?.[key] || key;
             const installPrompt = document.createElement('div');
             installPrompt.className = 'install-prompt';
             installPrompt.innerHTML = `
-                <span>📱 Installeer KNMI Weer App</span>
-                <button onclick="installPWA()">Installeren</button>
-                <button onclick="dismissInstall()" style="margin-left: 10px; background: transparent; color: white; border: 1px solid white;">Later</button>
+                <span><i class="bi bi-phone me-2"></i>${t('installApp')}</span>
+                <button onclick="installPWA()">${t('install')}</button>
+                <button onclick="dismissInstall()" style="margin-left: 10px; background: transparent; color: white; border: 1px solid white;">${t('later')}</button>
             `;
             document.body.appendChild(installPrompt);
             installPrompt.style.display = 'block';
@@ -668,20 +707,20 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
 
         function showUpdateAvailable() {
             if (window.weatherApp) {
-                window.weatherApp.showMessage('Een nieuwe versie is beschikbaar. Herlaad de pagina om bij te werken.', 'info');
+                window.weatherApp.showMessage(window.weatherApp.t('newVersion'), 'info');
             }
         }
 
         // Handle online/offline status
         window.addEventListener('online', function() {
             if (window.weatherApp) {
-                window.weatherApp.showMessage('Internetverbinding hersteld.', 'success');
+                window.weatherApp.showMessage(window.weatherApp.t('connectionRestored'), 'success');
             }
         });
 
         window.addEventListener('offline', function() {
             if (window.weatherApp) {
-                window.weatherApp.showMessage('Offline modus: sommige functies zijn beperkt.', 'warning');
+                window.weatherApp.showMessage(window.weatherApp.t('offlineMode'), 'warning');
             }
         });
     </script>

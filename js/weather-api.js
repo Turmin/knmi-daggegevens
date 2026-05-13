@@ -3,23 +3,24 @@ class WeatherAPI {
     constructor(baseUrl) {
         this.baseUrl = baseUrl;
         this.cache = new Map();
-        this.cacheDuration = 5 * 60 * 1000; // 5 minutes
+        this.cacheDuration = 24 * 60 * 60 * 1000; // KNMI day data is refreshed daily
     }
 
-    async fetchWeatherData(date, station = 260) {
+    async fetchWeatherData(date, station = 260, forceRefresh = false) {
         const cacheKey = `${date}-${station}`;
         const cachedData = this.cache.get(cacheKey);
         
-        if (cachedData && Date.now() - cachedData.timestamp < this.cacheDuration) {
+        if (!forceRefresh && cachedData && Date.now() - cachedData.timestamp < this.cacheDuration) {
             return cachedData.data;
         }
 
         try {
-            const response = await fetch(`${this.baseUrl}/day?date=${date}&station=${station}`, {
+            const refreshSuffix = forceRefresh ? `&_=${Date.now()}` : '';
+            const response = await fetch(`${this.baseUrl}/day?date=${date}&station=${station}${refreshSuffix}`, {
                 method: 'GET',
+                cache: forceRefresh ? 'reload' : 'default',
                 headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
+                    'Accept': 'application/json'
                 }
             });
             
@@ -46,20 +47,21 @@ class WeatherAPI {
         }
     }
 
-    async fetchPeriodData(startDate, endDate, station = 260) {
+    async fetchPeriodData(startDate, endDate, station = 260, forceRefresh = false) {
         const cacheKey = `period-${startDate}-${endDate}-${station}`;
         const cachedData = this.cache.get(cacheKey);
         
-        if (cachedData && Date.now() - cachedData.timestamp < this.cacheDuration) {
+        if (!forceRefresh && cachedData && Date.now() - cachedData.timestamp < this.cacheDuration) {
             return cachedData.data;
         }
 
         try {
-            const response = await fetch(`${this.baseUrl}/period?start=${startDate}&end=${endDate}&station=${station}`, {
+            const refreshSuffix = forceRefresh ? `&_=${Date.now()}` : '';
+            const response = await fetch(`${this.baseUrl}/period?start=${startDate}&end=${endDate}&station=${station}${refreshSuffix}`, {
                 method: 'GET',
+                cache: forceRefresh ? 'reload' : 'default',
                 headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
+                    'Accept': 'application/json'
                 }
             });
             
@@ -86,20 +88,21 @@ class WeatherAPI {
         }
     }
 
-    async fetchMonthlyStats(year, month, station = 260) {
+    async fetchMonthlyStats(year, month, station = 260, forceRefresh = false) {
         const cacheKey = `stats-${year}-${month}-${station}`;
         const cachedData = this.cache.get(cacheKey);
         
-        if (cachedData && Date.now() - cachedData.timestamp < this.cacheDuration) {
+        if (!forceRefresh && cachedData && Date.now() - cachedData.timestamp < this.cacheDuration) {
             return cachedData.data;
         }
 
         try {
-            const response = await fetch(`${this.baseUrl}/stats?year=${year}&month=${month}&station=${station}`, {
+            const refreshSuffix = forceRefresh ? `&_=${Date.now()}` : '';
+            const response = await fetch(`${this.baseUrl}/stats?year=${year}&month=${month}&station=${station}${refreshSuffix}`, {
                 method: 'GET',
+                cache: forceRefresh ? 'reload' : 'default',
                 headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
+                    'Accept': 'application/json'
                 }
             });
             
@@ -126,20 +129,21 @@ class WeatherAPI {
         }
     }
 
-    async fetchDateRange(station = 260) {
+    async fetchDateRange(station = 260, forceRefresh = false) {
         const cacheKey = `range-${station}`;
         const cachedData = this.cache.get(cacheKey);
         
-        if (cachedData && Date.now() - cachedData.timestamp < this.cacheDuration) {
+        if (!forceRefresh && cachedData && Date.now() - cachedData.timestamp < this.cacheDuration) {
             return cachedData.data;
         }
 
         try {
-            const response = await fetch(`${this.baseUrl}/range?station=${station}`, {
+            const refreshSuffix = forceRefresh ? `&_=${Date.now()}` : '';
+            const response = await fetch(`${this.baseUrl}/range?station=${station}${refreshSuffix}`, {
                 method: 'GET',
+                cache: forceRefresh ? 'reload' : 'default',
                 headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
+                    'Accept': 'application/json'
                 }
             });
             

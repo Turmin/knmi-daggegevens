@@ -1,5 +1,5 @@
 // sw.js - Service Worker for KNMI Weather App
-const CACHE_NAME = 'knmi-weather-v1.0.0.1';
+const CACHE_NAME = 'knmi-weather-v1.1.0';
 const urlsToCache = [
     // '/',
     // '/index.php',
@@ -11,7 +11,7 @@ const urlsToCache = [
     // External dependencies (cached for offline use)
     'https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css',
     'https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.js',
     'https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.1/font/bootstrap-icons.min.css'
 ];
 
@@ -56,7 +56,7 @@ self.addEventListener('activate', event => {
     );
 });
 
-// Fetch event - serve cached content when offline
+// Fetch event - use fresh network data first, with cache only as an offline fallback
 self.addEventListener('fetch', event => {
     // Skip non-GET requests
     if (event.request.method !== 'GET') {
@@ -68,68 +68,77 @@ self.addEventListener('fetch', event => {
         return;
     }
 
-    event.respondWith(
-        caches.match(event.request)
-            .then(response => {
-                // Return cached version if available
-                if (response) {
-                    console.log('Service Worker: Serving from cache', event.request.url);
-                    return response;
-                }
+    const requestUrl = new URL(event.request.url);
+    const isApiRequest = requestUrl.pathname.includes('/api/');
+    const isSameOrigin = requestUrl.origin === self.location.origin;
 
-                // Clone the request because it can only be used once
-                const fetchRequest = event.request.clone();
-
-                return fetch(fetchRequest)
-                    .then(response => {
-                        // Check if response is valid
-                        if (!response || response.status !== 200 || response.type !== 'basic') {
-                            return response;
+    if (isApiRequest) {
+        event.respondWith(
+            fetch(event.request, { cache: 'no-store' }).catch(() => {
+                return new Response(
+                    JSON.stringify({
+                        success: false,
+                        error: {
+                            code: 503,
+                            message: 'Geen internetverbinding beschikbaar'
+                        },
+                        offline: true
+                    }),
+                    {
+                        status: 503,
+                        statusText: 'Service Unavailable',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Cache-Control': 'no-store'
                         }
+                    }
+                );
+            })
+        );
+        return;
+    }
 
-                        // Clone the response because it can only be used once
+    if (isSameOrigin) {
+        event.respondWith(
+            fetch(event.request)
+                .then(response => {
+                    if (response && response.status === 200 && response.type === 'basic') {
                         const responseToCache = response.clone();
+                        caches.open(CACHE_NAME).then(cache => {
+                            cache.put(event.request, responseToCache);
+                        });
+                    }
 
-                        // Don't cache API responses (they change frequently)
-                        if (!event.request.url.includes('/api/')) {
-                            caches.open(CACHE_NAME)
-                                .then(cache => {
-                                    cache.put(event.request, responseToCache);
-                                });
-                        }
+                    return response;
+                })
+                .catch(() => {
+                    return caches.match(event.request).then(cachedResponse => {
+                        if (cachedResponse) return cachedResponse;
 
-                        return response;
-                    })
-                    .catch(error => {
-                        console.log('Service Worker: Fetch failed, serving offline page', error);
-                        
-                        // For API requests, return a custom offline response
-                        if (event.request.url.includes('/api/')) {
-                            return new Response(
-                                JSON.stringify({
-                                    success: false,
-                                    error: {
-                                        code: 503,
-                                        message: 'Geen internetverbinding beschikbaar'
-                                    },
-                                    offline: true
-                                }),
-                                {
-                                    status: 503,
-                                    statusText: 'Service Unavailable',
-                                    headers: {
-                                        'Content-Type': 'application/json'
-                                    }
-                                }
-                            );
-                        }
-
-                        // For HTML requests, try to serve cached index
-                        if (event.request.headers.get('accept').includes('text/html')) {
+                        if (event.request.headers.get('accept')?.includes('text/html')) {
                             return caches.match('/');
                         }
+
+                        return new Response('', { status: 504, statusText: 'Offline' });
                     });
-            })
+                })
+        );
+        return;
+    }
+
+    event.respondWith(
+        caches.match(event.request).then(cachedResponse => {
+            return cachedResponse || fetch(event.request).then(response => {
+                if (response && response.status === 200) {
+                    const responseToCache = response.clone();
+                    caches.open(CACHE_NAME).then(cache => {
+                        cache.put(event.request, responseToCache);
+                    });
+                }
+
+                return response;
+            });
+        })
     );
 });
 

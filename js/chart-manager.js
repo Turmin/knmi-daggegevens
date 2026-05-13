@@ -1,9 +1,22 @@
 // js/chart-manager.js
 class ChartManager {
-    constructor() {
+    constructor(language = 'nl') {
         this.chart = null;
         this.data = [];
+        this.language = language;
+        this.currentType = 'temp';
         this.initializeChart();
+    }
+
+    t(key, params = {}) {
+        const dictionary = window.AppI18n?.[this.language] || window.AppI18n?.nl || {};
+        let value = dictionary[key] || key;
+
+        Object.entries(params).forEach(([param, replacement]) => {
+            value = value.replace(`{${param}}`, replacement);
+        });
+
+        return value;
     }
 
     initializeChart() {
@@ -14,7 +27,7 @@ class ChartManager {
             data: {
                 labels: [],
                 datasets: [{
-                    label: 'Temperatuur',
+                    label: this.t('chartDatasetTemp'),
                     data: [],
                     borderColor: 'rgb(255, 99, 132)',
                     backgroundColor: 'rgba(255, 99, 132, 0.2)',
@@ -48,7 +61,7 @@ class ChartManager {
                     },
                     title: {
                         display: true,
-                        text: 'Temperatuurverloop van de laatste 7 dagen',
+                        text: this.t('chartTitleTemp', { days: 7 }),
                         font: {
                             size: 16,
                             weight: 'bold'
@@ -78,16 +91,18 @@ class ChartManager {
                             },
                             label: function(context) {
                                 const value = context.parsed.y;
-                                const type = context.dataset.label.toLowerCase();
+                                const type = context.chart.$currentWeatherType;
                                 
-                                if (type.includes('temperatuur')) {
+                                if (type === 'temp') {
                                     return `${context.dataset.label}: ${value}°C`;
-                                } else if (type.includes('wind')) {
+                                } else if (type === 'wind') {
                                     return `${context.dataset.label}: ${value} km/h`;
-                                } else if (type.includes('neerslag')) {
+                                } else if (type === 'rain') {
                                     return `${context.dataset.label}: ${value} mm`;
-                                } else if (type.includes('zon')) {
-                                    return `${context.dataset.label}: ${value} uur`;
+                                } else if (type === 'sun') {
+                                    const language = context.chart.$language || 'nl';
+                                    const hours = window.AppI18n?.[language]?.hours || 'uur';
+                                    return `${context.dataset.label}: ${value} ${hours}`;
                                 }
                                 return `${context.dataset.label}: ${value}`;
                             }
@@ -103,7 +118,7 @@ class ChartManager {
                         },
                         title: {
                             display: true,
-                            text: 'Temperatuur (°C)',
+                            text: this.t('chartAxisTemp'),
                             font: {
                                 size: 12,
                                 weight: 'bold'
@@ -145,7 +160,7 @@ class ChartManager {
 
     loadData(data) {
         this.data = data;
-        this.updateChart('temp'); // Default to temperature
+        this.updateChart(this.currentType);
     }
 
     updateChart(type) {
@@ -154,7 +169,11 @@ class ChartManager {
             return;
         }
 
-        const labels = this.data.map(item => item.date_short);
+        this.currentType = type;
+        this.chart.$currentWeatherType = type;
+        this.chart.$language = this.language;
+
+        const labels = this.data.map(item => this.formatChartDate(item.date, item.date_short));
         const chartConfig = this.getChartConfig(type);
         
         let data = [];
@@ -220,8 +239,8 @@ class ChartManager {
         this.chart.update('active');
     }
 
-    showEmptyChart(title = 'Geen gegevens beschikbaar') {
-        this.chart.data.labels = ['Geen data'];
+    showEmptyChart(title = this.t('chartNoData')) {
+        this.chart.data.labels = [this.t('chartNoDataLabel')];
         this.chart.data.datasets[0] = {
             ...this.chart.data.datasets[0],
             data: [0],
@@ -237,37 +256,37 @@ class ChartManager {
         const dataLength = this.data.length || 7;
         const configs = {
             temp: {
-                title: `Temperatuurverloop van de laatste ${dataLength} dagen`,
-                yAxisTitle: 'Temperatuur (°C)',
+                title: this.t('chartTitleTemp', { days: dataLength }),
+                yAxisTitle: this.t('chartAxisTemp'),
                 dataset: {
-                    label: 'Gemiddelde temperatuur',
+                    label: this.t('chartDatasetTemp'),
                     borderColor: 'rgb(255, 99, 132)',
                     backgroundColor: 'rgba(255, 99, 132, 0.2)',
                 }
             },
             rain: {
-                title: `Neerslagverloop van de laatste ${dataLength} dagen`,
-                yAxisTitle: 'Neerslag (mm)',
+                title: this.t('chartTitleRain', { days: dataLength }),
+                yAxisTitle: this.t('chartAxisRain'),
                 dataset: {
-                    label: 'Neerslag',
+                    label: this.t('chartDatasetRain'),
                     borderColor: 'rgb(54, 162, 235)',
                     backgroundColor: 'rgba(54, 162, 235, 0.2)',
                 }
             },
             wind: {
-                title: `Windsnelheidverloop van de laatste ${dataLength} dagen`,
-                yAxisTitle: 'Windsnelheid (km/h)',
+                title: this.t('chartTitleWind', { days: dataLength }),
+                yAxisTitle: this.t('chartAxisWind'),
                 dataset: {
-                    label: 'Windsnelheid',
+                    label: this.t('chartDatasetWind'),
                     borderColor: 'rgb(75, 192, 192)',
                     backgroundColor: 'rgba(75, 192, 192, 0.2)',
                 }
             },
             sun: {
-                title: `Zonneschijnduurverloop van de laatste ${dataLength} dagen`,
-                yAxisTitle: 'Zonneschijn (uren)',
+                title: this.t('chartTitleSun', { days: dataLength }),
+                yAxisTitle: this.t('chartAxisSun'),
                 dataset: {
-                    label: 'Zonneschijnduur',
+                    label: this.t('chartDatasetSun'),
                     borderColor: 'rgb(255, 205, 86)',
                     backgroundColor: 'rgba(255, 205, 86, 0.2)',
                 }
@@ -275,6 +294,27 @@ class ChartManager {
         };
         
         return configs[type] || configs.temp;
+    }
+
+    setLanguage(language) {
+        this.language = language;
+
+        if (this.chart) {
+            this.chart.$language = language;
+            this.updateChart(this.currentType);
+        }
+    }
+
+    formatChartDate(date, fallback) {
+        if (!date) return fallback || '';
+
+        const locale = this.language === 'en' ? 'en-GB' : 'nl-NL';
+        const parsedDate = new Date(`${date}T00:00:00`);
+
+        return new Intl.DateTimeFormat(locale, {
+            day: 'numeric',
+            month: 'short'
+        }).format(parsedDate);
     }
 
     destroy() {
