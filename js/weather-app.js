@@ -11,6 +11,9 @@ class WeatherApp {
         this.comparisonMode = false;
         this.isLoading = false;
         this.chartDays = 7;
+        this.chartRangeMode = '7';
+        this.chartRangeStart = null;
+        this.chartRangeEnd = null;
         this.currentWeatherData = null;
         this.currentComparisonData = null;
         this.monthlyStats = null;
@@ -47,7 +50,9 @@ class WeatherApp {
 
     getSavedLanguage() {
         const savedLanguage = localStorage.getItem('knmi-language');
-        return ['nl', 'en'].includes(savedLanguage) ? savedLanguage : 'nl';
+        const documentLanguage = document.documentElement.lang;
+        if (['nl', 'en'].includes(savedLanguage)) return savedLanguage;
+        return ['nl', 'en'].includes(documentLanguage) ? documentLanguage : 'nl';
     }
 
     getSavedTheme() {
@@ -219,9 +224,7 @@ class WeatherApp {
         const chartYear = document.getElementById('chartYear');
         if (chartYear) {
             chartYear.addEventListener('click', () => {
-                const startOfYear = new Date(this.currentDate.getFullYear(), 0, 1);
-                const daysSinceStart = Math.floor((this.currentDate - startOfYear) / (1000 * 60 * 60 * 24));
-                this.loadChartData(Math.min(daysSinceStart + 1, 365));
+                this.loadChartYear();
             });
         }
 
@@ -310,6 +313,7 @@ class WeatherApp {
 
         if (this.chartManager) {
             this.chartManager.setLanguage(language);
+            this.refreshChartRangeLabel();
         }
 
         if (this.currentWeatherData) {
@@ -358,26 +362,26 @@ class WeatherApp {
         this.updatePreferenceControls();
         this.updateDateRangeText();
         this.updateFooterTimes();
+        this.updateDocumentLinks();
+        this.updatePageTitle();
+        this.refreshChartRangeLabel();
     }
 
     updatePreferenceControls() {
         const themeToggle = document.getElementById('themeToggle');
-        // const themeToggleLabel = document.getElementById('themeToggleLabel');
 
-        // if (themeToggle && themeToggleLabel) {
         if (themeToggle) {
             const nextTheme = this.theme === 'dark' ? 'light' : 'dark';
-            // const nextThemeKey = nextTheme === 'dark' ? 'themeDark' : 'themeLight';
+            const nextThemeKey = nextTheme === 'dark' ? 'themeDark' : 'themeLight';
             const icon = themeToggle.querySelector('i');
 
-            // themeToggle.title = this.t(nextThemeKey);
-            // themeToggle.setAttribute('aria-label', this.t(nextThemeKey));
-            // themeToggleLabel.textContent = this.t(nextThemeKey);
+            themeToggle.title = this.t(nextThemeKey);
+            themeToggle.setAttribute('aria-label', this.t(nextThemeKey));
 
             if (icon) {
                 icon.className = nextTheme === 'dark'
-                    ? 'bi bi-moon-stars me-1'
-                    : 'bi bi-sun me-1';
+                    ? 'bi bi-moon-stars'
+                    : 'bi bi-sun';
             }
         }
 
@@ -388,6 +392,48 @@ class WeatherApp {
             button.classList.toggle('btn-outline-light', !isActive);
             button.setAttribute('aria-pressed', String(isActive));
         });
+    }
+
+    updateDocumentLinks() {
+        document.querySelectorAll('[data-doc-nl][data-doc-en]').forEach(link => {
+            link.textContent = this.language === 'en' ? link.dataset.docEn : link.dataset.docNl;
+        });
+    }
+
+    updatePageTitle(dateString = null) {
+        const targetDate = dateString || this.currentWeatherData?.date || this.formatDateForAPI(this.currentDate);
+        const title = this.t('pageTitle', {
+            date: this.formatDisplayDate(targetDate)
+        });
+
+        document.title = title;
+
+        const ogTitle = document.querySelector('meta[property="og:title"]');
+        if (ogTitle) {
+            ogTitle.content = title;
+        }
+    }
+
+    updateBrowserDateUrl(dateString) {
+        if (!dateString || !window.history?.replaceState) return;
+
+        const basePath = typeof APP_BASE_PATH === 'string' ? APP_BASE_PATH.replace(/\/$/, '') : '';
+        const datePath = `${basePath}/${dateString}`;
+        const absoluteDateUrl = new URL(datePath, window.location.origin).href;
+        const canonical = document.querySelector('link[rel="canonical"]');
+        const ogUrl = document.querySelector('meta[property="og:url"]');
+
+        if (canonical) {
+            canonical.href = absoluteDateUrl;
+        }
+
+        if (ogUrl) {
+            ogUrl.content = absoluteDateUrl;
+        }
+
+        if (window.location.pathname === datePath) return;
+
+        window.history.replaceState({}, '', datePath);
     }
 
     updateDateRangeText() {
@@ -502,8 +548,8 @@ class WeatherApp {
             this.updatePrimaryWeatherDisplay(data);
             this.updateDateDisplay();
             
-            // Load chart data for the new date
-            await this.loadChartData(this.chartDays);
+            // Load chart data for the selected range
+            await this.loadSelectedChartRange();
             
             // Load monthly stats for the new month
             await this.loadMonthlyStats();
@@ -534,39 +580,154 @@ class WeatherApp {
         }
     }
 
+    async loadSelectedChartRange() {
+        if (this.chartRangeMode === 'year') {
+            await this.loadChartYear();
+            return;
+        }
+
+        await this.loadChartData(this.chartRangeMode === '30' ? 30 : 7);
+    }
+
     async loadChartData(days) {
         try {
             this.chartDays = days;
             const endDate = new Date(this.currentDate);
             const startDate = new Date(endDate);
             startDate.setDate(startDate.getDate() - (days - 1));
-            
-            const startDateStr = this.formatDateForAPI(startDate);
-            const endDateStr = this.formatDateForAPI(endDate);
-            
-            const data = await this.api.fetchPeriodData(startDateStr, endDateStr);
-            
-            if (this.chartManager) {
-                this.chartManager.loadData(data);
+
+            const firstAvailable = this.parseAPIDate(this.firstDate);
+            if (startDate < firstAvailable) {
+                startDate.setTime(firstAvailable.getTime());
             }
-            
-            // Update active chart button
-            document.querySelectorAll('.chart-controls .btn').forEach(btn => btn.classList.remove('active'));
-            if (days === 7) {
-                const btn = document.getElementById('chart7Days');
-                if (btn) btn.classList.add('active');
-            } else if (days === 30) {
-                const btn = document.getElementById('chart30Days');
-                if (btn) btn.classList.add('active');
-            } else {
-                const btn = document.getElementById('chartYear');
-                if (btn) btn.classList.add('active');
-            }
-            
+
+            const rangeKey = days === 30 ? '30' : '7';
+            const rangeLabel = this.getTrailingRangeLabel(days, endDate);
+            await this.loadChartPeriod(startDate, endDate, rangeKey, rangeLabel);
         } catch (error) {
             console.error('Error loading chart data:', error);
             this.showMessage(this.t('chartLoadError'), 'error');
         }
+    }
+
+    async loadChartYear() {
+        try {
+            const year = this.currentDate.getFullYear();
+            const startDate = new Date(year, 0, 1);
+            const endDate = new Date(year, 11, 31);
+            const firstAvailable = this.parseAPIDate(this.firstDate);
+            const lastAvailable = this.parseAPIDate(this.lastDate);
+
+            if (startDate < firstAvailable) {
+                startDate.setTime(firstAvailable.getTime());
+            }
+
+            if (endDate > lastAvailable) {
+                endDate.setTime(lastAvailable.getTime());
+            }
+
+            const rangeLabel = this.getYearRangeLabel(year, startDate, endDate);
+            await this.loadChartPeriod(startDate, endDate, 'year', rangeLabel);
+        } catch (error) {
+            console.error('Error loading chart data:', error);
+            this.showMessage(this.t('chartLoadError'), 'error');
+        }
+    }
+
+    async loadChartPeriod(startDate, endDate, rangeKey, rangeLabel) {
+        try {
+            const startDateStr = this.formatDateForAPI(startDate);
+            const endDateStr = this.formatDateForAPI(endDate);
+
+            const data = await this.api.fetchPeriodData(startDateStr, endDateStr);
+
+            this.chartRangeMode = rangeKey;
+            this.chartRangeStart = startDateStr;
+            this.chartRangeEnd = endDateStr;
+            this.updateChartRangeLabel(rangeLabel);
+
+            if (this.chartManager) {
+                this.chartManager.setRangeLabel(rangeLabel);
+                this.chartManager.loadData(data);
+            }
+
+            this.updateChartRangeControls(rangeKey);
+        } catch (error) {
+            console.error('Error loading chart data:', error);
+            this.showMessage(this.t('chartLoadError'), 'error');
+        }
+    }
+
+    updateChartRangeControls(rangeKey) {
+        document.querySelectorAll('.chart-controls .btn').forEach(btn => btn.classList.remove('active'));
+
+        const buttonId = rangeKey === 'year'
+            ? 'chartYear'
+            : rangeKey === '30'
+                ? 'chart30Days'
+                : 'chart7Days';
+        const button = document.getElementById(buttonId);
+        if (button) {
+            button.classList.add('active');
+        }
+    }
+
+    updateChartRangeLabel(rangeLabel) {
+        const rangeEl = document.getElementById('chartRangeLabel');
+        if (rangeEl) {
+            rangeEl.textContent = rangeLabel;
+        }
+    }
+
+    refreshChartRangeLabel() {
+        let rangeLabel;
+
+        if (this.chartRangeMode === 'year' && this.chartRangeStart && this.chartRangeEnd) {
+            rangeLabel = this.getYearRangeLabel(
+                this.parseAPIDate(this.chartRangeStart).getFullYear(),
+                this.parseAPIDate(this.chartRangeStart),
+                this.parseAPIDate(this.chartRangeEnd)
+            );
+        } else {
+            const days = this.chartRangeMode === '30' ? 30 : 7;
+            rangeLabel = this.getTrailingRangeLabel(days, this.currentDate);
+        }
+
+        this.updateChartRangeLabel(rangeLabel);
+
+        if (this.chartManager) {
+            this.chartManager.setRangeLabel(rangeLabel);
+        }
+    }
+
+    getTrailingRangeLabel(days, endDate) {
+        return this.t('chartRangeLastDays', {
+            days,
+            date: this.formatDisplayDate(this.formatDateForAPI(endDate))
+        });
+    }
+
+    getYearRangeLabel(year, startDate, endDate) {
+        const fullStart = this.formatDateForAPI(new Date(year, 0, 1));
+        const fullEnd = this.formatDateForAPI(new Date(year, 11, 31));
+        const startDateStr = this.formatDateForAPI(startDate);
+        const endDateStr = this.formatDateForAPI(endDate);
+        const start = this.formatDisplayDate(startDateStr);
+        const end = this.formatDisplayDate(endDateStr);
+
+        if (startDateStr === fullStart && endDateStr === fullEnd) {
+            return this.t('chartRangeYear', { year });
+        }
+
+        if (startDateStr !== fullStart && endDateStr !== fullEnd) {
+            return this.t('chartRangeYearFromUntil', { year, start, end });
+        }
+
+        if (startDateStr !== fullStart) {
+            return this.t('chartRangeYearFrom', { year, start });
+        }
+
+        return this.t('chartRangeYearUntil', { year, end });
     }
 
     async loadMonthlyStats() {
@@ -653,6 +814,8 @@ class WeatherApp {
         if (titleEl) {
             titleEl.innerHTML = `<i class="bi bi-calendar-check me-2"></i>${this.formatDisplayDate(data.date)}`;
         }
+        this.updatePageTitle(data.date);
+        this.updateBrowserDateUrl(data.date);
 
         // Temperature
         this.updateElement('primaryTemp', this.formatTemperature(data.temperature.avg));

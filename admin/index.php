@@ -201,16 +201,24 @@ $service = null;
 $adminError = null;
 $stats = null;
 $apiPreview = null;
+$cronService = null;
+$cronJobs = [];
+$cronTaskOptions = [];
+$cronTokenFile = dirname(__DIR__, 2) . '/knmi.cron.credentials.php';
+$cronTokenConfigured = is_file($cronTokenFile);
 
 if ($isLoggedIn) {
     try {
         require_once __DIR__ . '/../config/Database.php';
         require_once __DIR__ . '/../models/WeatherData.php';
         require_once __DIR__ . '/../lib/KnmiDataService.php';
+        require_once __DIR__ . '/../lib/CronScheduleService.php';
 
         $service = new KnmiDataService(dirname(__DIR__));
         $db = (new Database())->connect();
         $weatherData = new WeatherData($db);
+        $cronService = new CronScheduleService($db, $service);
+        $cronTaskOptions = CronScheduleService::taskOptions();
 
         if (($_GET['export'] ?? '') === 'csv') {
             if (!tableExists($db)) {
@@ -224,7 +232,13 @@ if ($isLoggedIn) {
             $action = $_POST['action'];
             $result = null;
 
-            if ($action === 'download') {
+            if ($action === 'cron_save') {
+                $result = $cronService->saveJob($_POST);
+            } elseif ($action === 'cron_delete') {
+                $result = $cronService->deleteJob((int)($_POST['id'] ?? 0));
+            } elseif ($action === 'cron_run') {
+                $result = $cronService->runJob((int)($_POST['id'] ?? 0));
+            } elseif ($action === 'download') {
                 $result = $service->downloadDailyData();
             } elseif ($action === 'import') {
                 $result = $service->importDailyData($db);
@@ -258,6 +272,7 @@ if ($isLoggedIn) {
         }
 
         $stats = getAdminStats($db, $service);
+        $cronJobs = $cronService->listJobs();
 
         $apiDate = $_GET['api_date'] ?? ($stats['latest_date'] ?? null);
         if ($apiDate && preg_match('/^\d{4}-\d{2}-\d{2}$/', $apiDate)) {
@@ -299,6 +314,9 @@ $activity = array_reverse($_SESSION['admin_activity'] ?? []);
         .admin-user-badge { padding: .25rem .5rem; font-size: .875rem; font-weight: 600; }
         .admin-toolbar form { margin: 0; display: flex; }
         .login-shell { max-width: 520px; margin: 8vh auto; }
+        .cron-row { border: 1px solid #dde7f1; border-radius: 8px; padding: 1rem; background: #f8fbfe; }
+        .cron-row + .cron-row { margin-top: .75rem; }
+        .cron-meta { min-height: 1.25rem; }
         pre { white-space: pre-wrap; word-break: break-word; max-height: 360px; overflow: auto; }
         @media (max-width: 420px) { .action-grid { grid-template-columns: 1fr; } }
     </style>
@@ -480,6 +498,110 @@ $activity = array_reverse($_SESSION['admin_activity'] ?? []);
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <div class="admin-card">
+                <div class="card-body">
+                    <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 mb-3">
+                        <div>
+                            <h2 class="h5 mb-1"><i class="bi bi-clock-history text-primary me-2"></i>Cron schedules</h2>
+                            <div class="small text-muted">Database-managed jobs. Run <code>cron.php</code> every minute from one server cron.</div>
+                        </div>
+                        <div class="text-lg-end small">
+                            <div>
+                                Token file:
+                                <span class="badge bg-<?php echo $cronTokenConfigured ? 'success' : 'warning'; ?>">
+                                    <?php echo $cronTokenConfigured ? 'Configured' : 'Missing'; ?>
+                                </span>
+                            </div>
+                            <code>* * * * * php <?php echo h(dirname(__DIR__) . '/cron.php'); ?> &gt;/dev/null 2&gt;&amp;1</code>
+                        </div>
+                    </div>
+
+                    <form class="cron-row mb-3" method="post">
+                        <input type="hidden" name="csrf" value="<?php echo h($csrf); ?>">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-3">
+                                <label class="form-label" for="new_cron_name">Name</label>
+                                <input class="form-control" id="new_cron_name" name="name" value="Daily KNMI update" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label" for="new_cron_task">Task</label>
+                                <select class="form-select" id="new_cron_task" name="task">
+                                    <?php foreach ($cronTaskOptions as $taskKey => $taskLabel): ?>
+                                        <option value="<?php echo h($taskKey); ?>"><?php echo h($taskLabel); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label" for="new_cron_schedule">Schedule</label>
+                                <input class="form-control" id="new_cron_schedule" name="schedule" value="15 8 * * *" required>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="new_cron_enabled" name="enabled" value="1">
+                                    <label class="form-check-label" for="new_cron_enabled">Enabled</label>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <button class="btn btn-primary w-100" type="submit" name="action" value="cron_save">Add</button>
+                            </div>
+                        </div>
+                        <div class="small text-muted mt-2">Examples: <code>*/5 * * * *</code>, <code>15 8 * * *</code>, <code>@daily</code>.</div>
+                    </form>
+
+                    <?php if ($cronJobs): ?>
+                        <?php foreach ($cronJobs as $job): ?>
+                            <form class="cron-row" method="post">
+                                <input type="hidden" name="csrf" value="<?php echo h($csrf); ?>">
+                                <input type="hidden" name="id" value="<?php echo h($job['id']); ?>">
+                                <div class="row g-2 align-items-end">
+                                    <div class="col-lg-3">
+                                        <label class="form-label" for="cron_name_<?php echo h($job['id']); ?>">Name</label>
+                                        <input class="form-control" id="cron_name_<?php echo h($job['id']); ?>" name="name" value="<?php echo h($job['name']); ?>" required>
+                                    </div>
+                                    <div class="col-lg-3">
+                                        <label class="form-label" for="cron_task_<?php echo h($job['id']); ?>">Task</label>
+                                        <select class="form-select" id="cron_task_<?php echo h($job['id']); ?>" name="task">
+                                            <?php foreach ($cronTaskOptions as $taskKey => $taskLabel): ?>
+                                                <option value="<?php echo h($taskKey); ?>" <?php echo $job['task'] === $taskKey ? 'selected' : ''; ?>><?php echo h($taskLabel); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                    <div class="col-lg-2">
+                                        <label class="form-label" for="cron_schedule_<?php echo h($job['id']); ?>">Schedule</label>
+                                        <input class="form-control" id="cron_schedule_<?php echo h($job['id']); ?>" name="schedule" value="<?php echo h($job['schedule']); ?>" required>
+                                    </div>
+                                    <div class="col-lg-1">
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" id="cron_enabled_<?php echo h($job['id']); ?>" name="enabled" value="1" <?php echo (int)$job['enabled'] === 1 ? 'checked' : ''; ?>>
+                                            <label class="form-check-label" for="cron_enabled_<?php echo h($job['id']); ?>">On</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-3">
+                                        <div class="btn-group w-100" role="group">
+                                            <button class="btn btn-outline-primary" type="submit" name="action" value="cron_save">Save</button>
+                                            <button class="btn btn-outline-success" type="submit" name="action" value="cron_run">Run</button>
+                                            <button class="btn btn-outline-danger" type="submit" name="action" value="cron_delete" formnovalidate onclick="return confirm('Delete this cron schedule?');">Delete</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="cron-meta small text-muted mt-2">
+                                    Last run: <?php echo h($job['last_run_at'] ?: '-'); ?>,
+                                    status:
+                                    <span class="badge bg-<?php echo ($job['last_status'] ?? '') === 'success' ? 'success' : (($job['last_status'] ?? '') === 'failed' ? 'danger' : 'secondary'); ?>">
+                                        <?php echo h($job['last_status'] ?: 'never'); ?>
+                                    </span>
+                                    <?php if (!empty($job['last_message'])): ?>
+                                        <span class="ms-1"><?php echo h($job['last_message']); ?></span>
+                                    <?php endif; ?>
+                                </div>
+                            </form>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <div class="text-muted">No cron schedules yet.</div>
+                    <?php endif; ?>
                 </div>
             </div>
 

@@ -325,7 +325,7 @@ small.text-muted {
 }
 
 .chart-controls .btn {
-    margin: 0 0.25rem;
+    margin: 0;
     transition: all 0.3s ease;
 }
 
@@ -333,8 +333,32 @@ small.text-muted {
     background-color: var(--primary-blue);
     border-color: var(--primary-blue);
     color: white;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 102, 204, 0.4);
+    transform: none;
+    box-shadow: none;
+}
+
+.chart-controls .btn-group {
+    display: inline-flex;
+    flex-wrap: nowrap;
+}
+
+.chart-controls .btn-group > .btn {
+    border-radius: 0 !important;
+    flex: 0 1 auto;
+}
+
+.chart-controls .btn-group > .btn:first-child {
+    border-top-left-radius: 0.375rem !important;
+    border-bottom-left-radius: 0.375rem !important;
+}
+
+.chart-controls .btn-group > .btn:last-child {
+    border-top-right-radius: 0.375rem !important;
+    border-bottom-right-radius: 0.375rem !important;
+}
+
+.chart-controls .btn-group > .btn:not(:first-child) {
+    margin-left: -1px;
 }
 
 /* Loading States */
@@ -1124,10 +1148,6 @@ a {
         margin-left: -1px !important;
     }
 
-    #themeToggle {
-        white-space: nowrap;
-    }
-
     .quick-action {
         align-items: center;
         display: flex;
@@ -1157,5 +1177,53 @@ a {
     .quick-actions-grid {
         --bs-gutter-x: 0.5rem;
         --bs-gutter-y: 0.3rem;
+    }
+}
+
+#themeToggle {
+    align-items: center;
+    aspect-ratio: 1;
+    display: inline-flex;
+    justify-content: center;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    white-space: nowrap;
+}
+
+.footer-documents {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.5rem;
+    justify-content: center;
+}
+
+.footer-data-range {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.5rem;
+    justify-content: center;
+}
+
+.footer-separator {
+    color: var(--text-muted);
+}
+
+.chart-controls .btn-group {
+    flex-wrap: nowrap !important;
+}
+
+.chart-controls .btn-group > .btn {
+    margin: 0 !important;
+}
+
+.precipitation-chart-container {
+    height: 520px;
+}
+
+@media (max-width: 768px) {
+    .precipitation-chart-container {
+        height: 360px;
     }
 }

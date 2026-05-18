@@ -3,6 +3,105 @@
 require_once 'config/Database.php';
 require_once 'models/WeatherData.php';
 
+function h($value) {
+    return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
+}
+
+function isValidDateString($date) {
+    $parsed = DateTime::createFromFormat('Y-m-d', $date);
+    return $parsed && $parsed->format('Y-m-d') === $date;
+}
+
+function getRequestedDate() {
+    foreach (['date', 'datum'] as $param) {
+        if (!empty($_GET[$param])) {
+            return $_GET[$param] === 'today' ? date('Y-m-d') : $_GET[$param];
+        }
+    }
+
+    $requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '';
+    if (preg_match('~/(\\d{4}-\\d{2}-\\d{2})/?$~', $requestPath, $matches)) {
+        return $matches[1];
+    }
+
+    return null;
+}
+
+function getDatePathFromRequest() {
+    $requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '';
+    if (preg_match('~/(\\d{4}-\\d{2}-\\d{2})/?$~', $requestPath, $matches)) {
+        return $matches[1];
+    }
+
+    return null;
+}
+
+function siteBaseUrl() {
+    $scheme = 'http';
+    if (
+        (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https')
+    ) {
+        $scheme = 'https';
+    }
+
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $scriptDir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? ''));
+    $scriptDir = $scriptDir === '/' ? '' : rtrim($scriptDir, '/');
+
+    return $scheme . '://' . $host . $scriptDir;
+}
+
+function appBasePath() {
+    $scriptDir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? ''));
+    return $scriptDir === '/' ? '' : rtrim($scriptDir, '/');
+}
+
+function datePageUrl($date) {
+    return siteBaseUrl() . '/' . rawurlencode($date);
+}
+
+function formatPageDate($date, $language = 'nl') {
+    $timestamp = strtotime($date);
+    if ($timestamp === false) {
+        return $date;
+    }
+
+    $monthIndex = (int)date('n', $timestamp) - 1;
+    $months = [
+        'nl' => ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'],
+        'en' => ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+    ];
+
+    return (int)date('j', $timestamp) . ' ' . $months[$language][$monthIndex] . ' ' . date('Y', $timestamp);
+}
+
+function getDocumentLinks() {
+    $labelMap = [
+        'beaufortschaal.pdf' => ['nl' => 'Beaufortschaal', 'en' => 'Beaufort scale'],
+        'windroos.pdf' => ['nl' => 'Windroos', 'en' => 'Wind rose']
+    ];
+
+    $documents = [];
+    foreach (glob(__DIR__ . '/doc/*.pdf') ?: [] as $path) {
+        $filename = basename($path);
+        $fallback = ucwords(str_replace(['-', '_'], ' ', pathinfo($filename, PATHINFO_FILENAME)));
+        $labels = $labelMap[$filename] ?? ['nl' => $fallback, 'en' => $fallback];
+
+        $documents[] = [
+            'href' => 'doc/' . rawurlencode($filename),
+            'filename' => $filename,
+            'label_nl' => $labels['nl'],
+            'label_en' => $labels['en']
+        ];
+    }
+
+    return $documents;
+}
+
+$requestedDate = getRequestedDate();
+$datePathFromRequest = getDatePathFromRequest();
+
 // Initialize weather data
 try {
     $database = new Database();
@@ -22,20 +121,50 @@ try {
 
 // Set default date (today or latest available)
 $defaultDate = min(date('Y-m-d'), $lastDate);
+$requestedDateIsCanonical = false;
+if ($requestedDate && isValidDateString($requestedDate) && $requestedDate >= $firstDate && $requestedDate <= $lastDate) {
+    $defaultDate = $requestedDate;
+    $requestedDateIsCanonical = $datePathFromRequest === $requestedDate;
+}
+
+$canonicalUrl = datePageUrl($defaultDate);
+
+if (
+    $requestedDate
+    && isValidDateString($requestedDate)
+    && $requestedDate >= $firstDate
+    && $requestedDate <= $lastDate
+    && !$requestedDateIsCanonical
+    && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET'
+) {
+    header('Location: ' . $canonicalUrl, true, 301);
+    exit;
+}
+
+$pageLanguage = isset($_GET['lang']) && $_GET['lang'] === 'en' ? 'en' : 'nl';
+$pageDate = formatPageDate($defaultDate, $pageLanguage);
+$pageTitle = $pageLanguage === 'en'
+    ? 'Weather on ' . $pageDate . ' - KNMI Daily Data'
+    : 'Het weer op ' . $pageDate . ' - KNMI Daggegevens';
+$pageDescription = $pageLanguage === 'en'
+    ? 'Historical KNMI daily weather data for ' . $pageDate . ' with comparisons and interactive charts.'
+    : 'Historische KNMI daggegevens voor ' . $pageDate . ' met vergelijkingsfunctie en interactieve grafieken.';
+$documents = getDocumentLinks();
 ?>
 <!DOCTYPE html>
-<html lang="nl" data-theme="light">
+<html lang="<?php echo h($pageLanguage); ?>" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KNMI Daggegevens</title>
+    <title><?php echo h($pageTitle); ?></title>
+    <link rel="canonical" href="<?php echo h($canonicalUrl); ?>">
     <link rel="icon" type="image/x-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14'>☀️</text></svg>">
-    <meta name="description" content="Historische KNMI daggegevens met vergelijkingsfunctie en interactieve grafieken">
+    <meta name="description" content="<?php echo h($pageDescription); ?>">
     <meta name="keywords" content="knmi, weer, weerstatistieken, temperatuur, neerslag, verdamping, zonneschijnduur, straling, bedekkingsgraad, zicht, luchtvochtigheid">
     <script>
         (function() {
             const savedTheme = localStorage.getItem('knmi-theme');
-            const savedLanguage = localStorage.getItem('knmi-language') || 'nl';
+            const savedLanguage = localStorage.getItem('knmi-language') || '<?php echo h($pageLanguage); ?>';
             const preferredTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 
             document.documentElement.dataset.theme = savedTheme || preferredTheme;
@@ -45,9 +174,9 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
-    <meta property="og:url" content="<?php echo (isset($_SERVER['HTTPS']) ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI']; ?>">
-    <meta property="og:title" content="KNMI Daggegevens - Nederlandse Weerdata">
-    <meta property="og:description" content="Bekijk historische weergegevens van het KNMI met moderne interface en vergelijkingsfunctie">
+    <meta property="og:url" content="<?php echo h($canonicalUrl); ?>">
+    <meta property="og:title" content="<?php echo h($pageTitle); ?>">
+    <meta property="og:description" content="<?php echo h($pageDescription); ?>">
     
     <!-- Bootstrap CSS -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
@@ -83,14 +212,12 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
                                     <i class="bi bi-cloud-sun me-2"></i>
                                     <span data-i18n="appName">KNMI Daggegevens</span>
                                 </h1>
-                                <p class="mb-0 mt-2" data-i18n="tagline">Historische weerdata van Nederland - Meetstation De Bilt</p>
-                                <small class="text-light" id="availableDataText" data-first-date="<?php echo $firstDate; ?>" data-last-date="<?php echo $lastDate; ?>">Beschikbare data: <?php echo date('d-m-Y', strtotime($firstDate)); ?> tot <?php echo date('d-m-Y', strtotime($lastDate)); ?></small>
+                                <p class="mb-0 mt-2" data-i18n="tagline">Historische weerdata van Nederland</p>
                             </div>
                             <div class="preference-controls" aria-label="Weergave-instellingen">
                                 <div class="btn-group btn-group-sm" role="group" aria-label="Theme">
                                     <button type="button" class="btn btn-outline-light" id="themeToggle" data-i18n-title="themeDark" aria-label="Schakel donker thema in">
-                                        <i class="bi bi-moon-stars me-1"></i>
-                                        <span id="themeToggleLabel" data-i18n="themeDark">Donker</span>
+                                        <i class="bi bi-moon-stars"></i>
                                     </button>
                                 </div>
                                 <div class="btn-group btn-group-sm" role="group" aria-label="Language">
@@ -133,9 +260,9 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
                                 <button type="button" class="btn btn-outline-primary btn-custom" id="nextDay" title="Volgende dag (Ctrl+→)" data-i18n-title="nextDay">
                                     <span class="d-none d-sm-inline" data-i18n="nextDay">Volgende dag</span> <i class="bi bi-chevron-right"></i>
                                 </button>
-                                <button type="button" class="btn btn-outline-secondary btn-custom" id="refreshData" data-i18n-title="refresh" aria-label="Ververs data">
+                                <!-- <button type="button" class="btn btn-outline-secondary btn-custom" id="refreshData" data-i18n-title="refresh" aria-label="Ververs data">
                                     <i class="bi bi-arrow-clockwise"></i>
-                                </button>
+                                </button> -->
                             </div>
                         </div>
                     </div>
@@ -151,7 +278,7 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
                         <input class="form-check-input" type="checkbox" id="comparisonMode" title="Vergelijk twee datums (Ctrl+C)" data-i18n-title="comparisonMode">
                         <label class="form-check-label fw-bold" for="comparisonMode">
                             <i class="bi bi-arrow-left-right me-2"></i><span data-i18n="comparisonMode">Vergelijkingsmodus</span>
-                            <small class="text-muted ms-2" data-i18n="comparisonHint">(Vergelijk weerdata van twee verschillende dagen)</small>
+                            <!-- <small class="text-muted ms-2" data-i18n="comparisonHint">(Vergelijk weerdata van twee verschillende dagen)</small> -->
                         </label>
                     </div>
                     <div id="comparisonDatePicker" class="mt-3" style="display: none;">
@@ -415,7 +542,7 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
                         <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center">
                             <h4 class="mb-2 mb-md-0">
                                 <i class="bi bi-graph-up me-2"></i><span data-i18n="statistics">Statistieken</span>
-                                <small class="text-light" data-i18n="last7Days">Laatste 7 dagen</small>
+                                <small class="text-light" id="chartRangeLabel">Laatste 7 dagen</small>
                             </h4>
                             <div class="btn-group flex-wrap" role="group">
                                 <input type="radio" class="btn-check" name="chartType" id="tempChart" autocomplete="off" checked>
@@ -448,7 +575,7 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
                             <div class="btn-group btn-group-sm" role="group">
                                 <button type="button" class="btn btn-outline-secondary" id="chart7Days" data-i18n="days7">7 dagen</button>
                                 <button type="button" class="btn btn-outline-secondary" id="chart30Days" data-i18n="days30">30 dagen</button>
-                                <button type="button" class="btn btn-outline-secondary" id="chartYear" data-i18n="thisYear">Dit jaar</button>
+                                <button type="button" class="btn btn-outline-secondary" id="chartYear" data-i18n="thisYear">Jaar</button>
                             </div>
                         </div>
                     </div>
@@ -519,6 +646,25 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
         <footer class="row mt-5">
             <div class="col-12">
                 <div class="text-center text-muted">
+                    <p class="small footer-data-range mb-2">
+                        <span data-i18n="stationShort">Meetstation De Bilt</span>
+                        <span class="footer-separator">•</span>
+                        <span id="availableDataText" data-first-date="<?php echo h($firstDate); ?>" data-last-date="<?php echo h($lastDate); ?>">Beschikbare data: <?php echo h(date('d-m-Y', strtotime($firstDate))); ?> tot <?php echo h(date('d-m-Y', strtotime($lastDate))); ?></span>
+                    </p>
+                    <?php if ($documents): ?>
+                    <p class="small footer-documents mb-2">
+                        <span data-i18n="documents">Documenten:</span>
+                        <?php foreach ($documents as $index => $document): ?>
+                            <?php if ($index > 0): ?><span class="footer-separator">•</span><?php endif; ?>
+                            <a href="<?php echo h($document['href']); ?>"
+                               target="_blank"
+                               rel="noopener"
+                               class="text-decoration-none"
+                               data-doc-nl="<?php echo h($document['label_nl']); ?>"
+                               data-doc-en="<?php echo h($document['label_en']); ?>"><?php echo h($document['label_nl']); ?></a>
+                        <?php endforeach; ?>
+                    </p>
+                    <?php endif; ?>
                     <p class="mb-2">
                         <strong data-i18n="appName">KNMI Daggegevens</strong> •
                         <span data-i18n="footerData">Data:</span> <a href="https://knmi.nl" target="_blank" rel="noopener" class="text-decoration-none">Koninklijk Nederlands Meteorologisch Instituut</a>
@@ -617,9 +763,10 @@ $defaultDate = min(date('Y-m-d'), $lastDate);
     <script>
         // Configuration - Pas dit aan naar jouw setup
         const API_BASE_URL = 'api/weather.php';  // Of gebruik volledige URL: 'http://yoursite.com/api/weather.php'
-        const FIRST_DATE = '<?php echo $firstDate; ?>';
-        const LAST_DATE = '<?php echo $lastDate; ?>';
-        const DEFAULT_DATE = '<?php echo $defaultDate; ?>';
+        const FIRST_DATE = '<?php echo h($firstDate); ?>';
+        const LAST_DATE = '<?php echo h($lastDate); ?>';
+        const DEFAULT_DATE = '<?php echo h($defaultDate); ?>';
+        const APP_BASE_PATH = '<?php echo h(appBasePath()); ?>';
     </script>
 
     <!-- External Scripts -->

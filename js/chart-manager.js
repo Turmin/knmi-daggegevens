@@ -5,6 +5,7 @@ class ChartManager {
         this.data = [];
         this.language = language;
         this.currentType = 'temp';
+        this.rangeLabel = this.t('last7Days');
         this.initializeChart();
     }
 
@@ -61,7 +62,7 @@ class ChartManager {
                     },
                     title: {
                         display: true,
-                        text: this.t('chartTitleTemp', { days: 7 }),
+                        text: this.t('chartTitleTempRange', { range: this.rangeLabel }),
                         font: {
                             size: 16,
                             weight: 'bold'
@@ -163,6 +164,14 @@ class ChartManager {
         this.updateChart(this.currentType);
     }
 
+    setRangeLabel(rangeLabel) {
+        this.rangeLabel = rangeLabel || this.t('last7Days');
+
+        if (this.chart) {
+            this.updateChart(this.currentType);
+        }
+    }
+
     updateChart(type) {
         if (!this.data || this.data.length === 0) {
             this.showEmptyChart();
@@ -254,9 +263,10 @@ class ChartManager {
 
     getChartConfig(type) {
         const dataLength = this.data.length || 7;
+        const range = this.rangeLabel || this.t('last7Days');
         const configs = {
             temp: {
-                title: this.t('chartTitleTemp', { days: dataLength }),
+                title: this.t('chartTitleTempRange', { range, days: dataLength }),
                 yAxisTitle: this.t('chartAxisTemp'),
                 dataset: {
                     label: this.t('chartDatasetTemp'),
@@ -265,7 +275,7 @@ class ChartManager {
                 }
             },
             rain: {
-                title: this.t('chartTitleRain', { days: dataLength }),
+                title: this.t('chartTitleRainRange', { range, days: dataLength }),
                 yAxisTitle: this.t('chartAxisRain'),
                 dataset: {
                     label: this.t('chartDatasetRain'),
@@ -274,7 +284,7 @@ class ChartManager {
                 }
             },
             wind: {
-                title: this.t('chartTitleWind', { days: dataLength }),
+                title: this.t('chartTitleWindRange', { range, days: dataLength }),
                 yAxisTitle: this.t('chartAxisWind'),
                 dataset: {
                     label: this.t('chartDatasetWind'),
@@ -283,7 +293,7 @@ class ChartManager {
                 }
             },
             sun: {
-                title: this.t('chartTitleSun', { days: dataLength }),
+                title: this.t('chartTitleSunRange', { range, days: dataLength }),
                 yAxisTitle: this.t('chartAxisSun'),
                 dataset: {
                     label: this.t('chartDatasetSun'),
