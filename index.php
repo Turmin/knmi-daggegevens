@@ -76,6 +76,74 @@ function formatPageDate($date, $language = 'nl') {
     return (int)date('j', $timestamp) . ' ' . $months[$language][$monthIndex] . ' ' . date('Y', $timestamp);
 }
 
+function formatMetaNumber($value, $language = 'nl') {
+    if ($value === null || $value === '') {
+        return null;
+    }
+
+    return number_format((float)$value, 1, $language === 'nl' ? ',' : '.', '');
+}
+
+function weatherMetaDescription($weather, $pageDate, $language = 'nl') {
+    if (!$weather) {
+        return $language === 'en'
+            ? 'Historical KNMI daily weather data for ' . $pageDate . ' in De Bilt.'
+            : 'Historische KNMI daggegevens voor ' . $pageDate . ' in De Bilt.';
+    }
+
+    $average = formatMetaNumber($weather['temperature']['avg'] ?? null, $language);
+    $maximum = formatMetaNumber($weather['temperature']['max'] ?? null, $language);
+    $rain = formatMetaNumber($weather['precipitation']['amount'] ?? null, $language);
+    $sun = formatMetaNumber($weather['sunshine']['duration'] ?? null, $language);
+    $wind = $weather['wind']['direction_text'] ?? null;
+
+    if ($language === 'en') {
+        $parts = [];
+        if ($average !== null) {
+            $parts[] = 'average temperature ' . $average . ' °C';
+        }
+        if ($maximum !== null) {
+            $parts[] = 'maximum ' . $maximum . ' °C';
+        }
+        if ($rain !== null) {
+            $parts[] = $rain . ' mm precipitation';
+        }
+        if ($sun !== null) {
+            $parts[] = $sun . ' hours of sunshine';
+        }
+        if ($wind) {
+            $parts[] = 'wind from ' . $wind;
+        }
+        if (!$parts) {
+            return 'Historical KNMI daily weather data for ' . $pageDate . ' in De Bilt.';
+        }
+
+        return 'Weather on ' . $pageDate . ' in De Bilt: ' . implode(', ', $parts) . '.';
+    }
+
+    $parts = [];
+    if ($average !== null) {
+        $parts[] = 'gemiddeld ' . $average . ' °C';
+    }
+    if ($maximum !== null) {
+        $parts[] = 'maximaal ' . $maximum . ' °C';
+    }
+    if ($rain !== null) {
+        $parts[] = $rain . ' mm neerslag';
+    }
+    if ($sun !== null) {
+        $parts[] = $sun . ' uur zon';
+    }
+    if ($wind) {
+        $parts[] = 'wind ' . $wind;
+    }
+    if (!$parts) {
+        return 'Historische KNMI daggegevens voor ' . $pageDate . ' in De Bilt.';
+    }
+
+    return 'Het weer op ' . $pageDate . ' in De Bilt: ' . implode(', ', $parts) . '.';
+}
+
 function getDocumentLinks() {
     $labelMap = [
         'beaufortschaal.pdf' => ['nl' => 'Beaufortschaal', 'en' => 'Beaufort scale'],
@@ -101,6 +169,7 @@ function getDocumentLinks() {
 
 $requestedDate = getRequestedDate();
 $datePathFromRequest = getDatePathFromRequest();
+$weatherData = null;
 
 // Initialize weather data
 try {
@@ -118,6 +187,8 @@ try {
     $firstDate = '1970-01-01';
     $lastDate = date('Y-m-d');
 }
+
+$pageLanguage = isset($_GET['lang']) && $_GET['lang'] === 'en' ? 'en' : 'nl';
 
 // Set default date (today or latest available)
 $defaultDate = min(date('Y-m-d'), $lastDate);
@@ -141,14 +212,20 @@ if (
     exit;
 }
 
-$pageLanguage = isset($_GET['lang']) && $_GET['lang'] === 'en' ? 'en' : 'nl';
+$initialWeatherData = null;
+if ($weatherData instanceof WeatherData) {
+    try {
+        $initialWeatherData = $weatherData->getDataByDate($defaultDate);
+    } catch(Exception $e) {
+        error_log("Initial weather data error: " . $e->getMessage());
+    }
+}
+
 $pageDate = formatPageDate($defaultDate, $pageLanguage);
 $pageTitle = $pageLanguage === 'en'
     ? 'Weather on ' . $pageDate . ' - KNMI Daily Data'
     : 'Het weer op ' . $pageDate . ' - KNMI Daggegevens';
-$pageDescription = $pageLanguage === 'en'
-    ? 'Historical KNMI daily weather data for ' . $pageDate . ' with comparisons and interactive charts.'
-    : 'Historische KNMI daggegevens voor ' . $pageDate . ' met vergelijkingsfunctie en interactieve grafieken.';
+$pageDescription = weatherMetaDescription($initialWeatherData, $pageDate, $pageLanguage);
 $documents = getDocumentLinks();
 ?>
 <!DOCTYPE html>
@@ -208,10 +285,10 @@ $documents = getDocumentLinks();
                     <div class="card-header">
                         <div class="app-header">
                             <div class="app-title">
-                                <h1 class="mb-0">
+                                <div class="mb-0 app-name">
                                     <i class="bi bi-cloud-sun me-2"></i>
                                     <span data-i18n="appName">KNMI Daggegevens</span>
-                                </h1>
+                                </div>
                                 <p class="mb-0 mt-2" data-i18n="tagline">Historische weerdata van Nederland</p>
                             </div>
                             <div class="preference-controls" aria-label="Weergave-instellingen">
@@ -327,10 +404,10 @@ $documents = getDocumentLinks();
             <div class="col-lg-6 mb-4">
                 <div class="weather-card fade-in" id="primaryCard">
                     <div class="card-header">
-                        <h3 class="mb-0" id="primaryDayTitle">
+                        <h1 class="mb-0 primary-date-title" id="primaryDayTitle">
                             <i class="bi bi-calendar-check me-2"></i>
-                            <span class="loading-placeholder" data-i18n="dateLoading">Datum wordt geladen...</span>
-                        </h3>
+                            <?php echo h($pageDate); ?>
+                        </h1>
                         <small data-i18n="station">Meetstation: De Bilt (260)</small>
                     </div>
                     <div class="card-body p-4">

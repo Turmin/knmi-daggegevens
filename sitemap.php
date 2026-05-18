@@ -23,6 +23,25 @@ function xmlEscape($value): string {
     return htmlspecialchars((string)$value, ENT_XML1 | ENT_QUOTES, 'UTF-8');
 }
 
+function normalizeKnmiDate($value): ?string {
+    if ($value === null || $value === '') {
+        return null;
+    }
+
+    $date = trim((string)$value);
+
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+        return $date;
+    }
+
+    if (preg_match('/^(\d{4})(\d{2})(\d{2})$/', $date, $match)) {
+        return $match[1] . '-' . $match[2] . '-' . $match[3];
+    }
+
+    $timestamp = strtotime($date);
+    return $timestamp === false ? null : date('Y-m-d', $timestamp);
+}
+
 function writeXmlHeader(): void {
     echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
 }
@@ -69,19 +88,18 @@ function getSitemapYears(PDO $db): array {
 
 function getLatestDate(PDO $db): ?string {
     $latestDate = $db->query('SELECT MAX(yyyymmdd) FROM knmi WHERE stn = 260')->fetchColumn();
-    return $latestDate ?: null;
+    return normalizeKnmiDate($latestDate);
 }
 
 function writeSitemapIndex(PDO $db, string $baseUrl): void {
     $years = getSitemapYears($db);
-    $latestDate = $years[0]['lastmod'] ?? getLatestDate($db);
 
     writeXmlHeader();
     echo '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
-    writeSitemapEntry($baseUrl . '/sitemap.php?section=pages', $latestDate ?: null);
+    writeSitemapEntry($baseUrl . '/sitemap.php?section=pages');
 
     foreach ($years as $year) {
-        writeSitemapEntry($baseUrl . '/sitemap.php?year=' . rawurlencode((string)$year['year']), $year['lastmod'] ?? null);
+        writeSitemapEntry($baseUrl . '/sitemap.php?year=' . rawurlencode((string)$year['year']));
     }
 
     echo "</sitemapindex>\n";
@@ -125,8 +143,13 @@ function writeYearSitemap(PDO $db, string $baseUrl, int $year): void {
     writeXmlHeader();
     echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
 
-    while ($date = $stmt->fetchColumn()) {
-        writeUrlEntry($baseUrl . '/' . $date, $date, 'never', '0.5');
+    while ($rawDate = $stmt->fetchColumn()) {
+        $date = normalizeKnmiDate($rawDate);
+        if (!$date) {
+            continue;
+        }
+
+        writeUrlEntry($baseUrl . '/' . $date, null, 'never', '0.5');
     }
 
     echo "</urlset>\n";

@@ -137,9 +137,15 @@ body {
     min-width: 0;
 }
 
-.app-title h1 {
+.app-title .app-name {
     font-size: 2rem;
+    font-weight: 500;
     line-height: 1.15;
+}
+
+.primary-date-title {
+    font-size: 1.75rem;
+    line-height: 1.2;
 }
 
 .preference-controls {
@@ -543,8 +549,12 @@ a {
         flex-direction: column;
     }
 
-    .app-title h1 {
+    .app-title .app-name {
         font-size: 1.55rem;
+    }
+
+    .primary-date-title {
+        font-size: 1.45rem;
     }
 
     .preference-controls {

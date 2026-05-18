@@ -297,29 +297,7 @@ $activity = array_reverse($_SESSION['admin_activity'] ?? []);
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='14'%3E%E2%98%80%EF%B8%8F%3C/text%3E%3C/svg%3E">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.1/font/bootstrap-icons.min.css" rel="stylesheet">
-    <style>
-        body { background: #eef3f8; min-height: 100vh; font-family: 'Segoe UI', system-ui, sans-serif; color: #172033; }
-        .admin-container { max-width: 1180px; padding: 2rem 1rem; }
-        .admin-card { background: #fff; border: 1px solid rgba(20,52,85,.12); border-radius: 8px; box-shadow: 0 8px 26px rgba(17,40,68,.10); margin-bottom: 1.25rem; overflow: hidden; }
-        .admin-header { background: linear-gradient(135deg, #0a66c2 0%, #0f9488 100%); color: #fff; padding: 1.25rem; }
-        .card-body { padding: 1.25rem; }
-        .stat-card { border-left: 4px solid #0a66c2; background: #f8fbfe; border-radius: 8px; padding: 1rem; min-height: 118px; }
-        .stat-number { font-size: 1.55rem; font-weight: 700; color: #0a66c2; overflow-wrap: anywhere; }
-        .status-row { border: 1px solid #dde7f1; border-radius: 8px; padding: .75rem; background: #f8fbfe; }
-        .action-btn { min-height: 44px; }
-        .action-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
-        .admin-toolbar { align-items: stretch; }
-        .admin-toolbar .btn,
-        .admin-user-badge { min-height: 31px; display: inline-flex; align-items: center; }
-        .admin-user-badge { padding: .25rem .5rem; font-size: .875rem; font-weight: 600; }
-        .admin-toolbar form { margin: 0; display: flex; }
-        .login-shell { max-width: 520px; margin: 8vh auto; }
-        .cron-row { border: 1px solid #dde7f1; border-radius: 8px; padding: 1rem; background: #f8fbfe; }
-        .cron-row + .cron-row { margin-top: .75rem; }
-        .cron-meta { min-height: 1.25rem; }
-        pre { white-space: pre-wrap; word-break: break-word; max-height: 360px; overflow: auto; }
-        @media (max-width: 420px) { .action-grid { grid-template-columns: 1fr; } }
-    </style>
+    <link href="css/admin-style.css" rel="stylesheet">
 </head>
 <body>
     <div class="container admin-container">
