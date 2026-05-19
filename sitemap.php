@@ -3,16 +3,27 @@ require_once __DIR__ . '/config/Database.php';
 
 header('Content-Type: application/xml; charset=utf-8');
 
-function sitemapBaseUrl(): string {
-    $scheme = 'http';
-    if (
-        (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-        || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https')
-    ) {
-        $scheme = 'https';
-    }
+function sitemapRequestIsSecure(): bool {
+    $forwardedProto = strtolower(trim(explode(',', (string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''))[0]));
 
+    return (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || $forwardedProto === 'https'
+        || (($_SERVER['HTTP_X_FORWARDED_SSL'] ?? '') === 'on')
+        || (($_SERVER['HTTP_FRONT_END_HTTPS'] ?? '') === 'on')
+        || (($_SERVER['SERVER_PORT'] ?? '') === '443')
+        || stripos((string)($_SERVER['HTTP_CF_VISITOR'] ?? ''), '"scheme":"https"') !== false;
+}
+
+function sitemapIsLocalHost(string $host): bool {
+    $hostOnly = strtolower(preg_replace('/:\d+$/', '', $host));
+    return in_array($hostOnly, ['localhost', '127.0.0.1', '::1'], true);
+}
+
+function sitemapBaseUrl(): string {
     $host = $_SERVER['HTTP_HOST'] ?? 'knmi.turmin.com';
+    $scheme = sitemapIsLocalHost($host)
+        ? (sitemapRequestIsSecure() ? 'https' : 'http')
+        : 'https';
     $scriptDir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? ''));
     $scriptDir = $scriptDir === '/' ? '' : rtrim($scriptDir, '/');
 
@@ -110,6 +121,7 @@ function writePagesSitemap(PDO $db, string $baseUrl): void {
 
     writeXmlHeader();
     echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
+    writeUrlEntry($baseUrl . '/', $latestDate, 'daily', '1.0');
     writeUrlEntry($baseUrl . '/precipitation.php', $latestDate, 'monthly', '0.7');
 
     foreach (glob(__DIR__ . '/doc/*.pdf') ?: [] as $document) {

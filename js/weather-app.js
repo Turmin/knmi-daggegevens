@@ -20,6 +20,9 @@ class WeatherApp {
         this.monthlyStatsYear = null;
         this.monthlyStatsMonth = null;
         this.lastRefreshTime = null;
+        this.shouldUpdateDateUrl = typeof INITIAL_PAGE_IS_DATE_PAGE !== 'undefined'
+            ? INITIAL_PAGE_IS_DATE_PAGE
+            : true;
         
         // Wait for DOM and scripts to be ready
         if (document.readyState === 'loading') {
@@ -34,14 +37,20 @@ class WeatherApp {
             this.applyTheme(this.theme);
             this.applyTranslations();
             this.setupEventListeners();
+            await this.hideLoadingScreen();
+
+            const hasInitialWeatherData = this.renderInitialWeatherData();
             
             // Wait for Chart.js to be available
             await this.waitForChart();
             this.chartManager = new ChartManager(this.language);
             this.chartManager.updateTheme(this.theme === 'dark');
             
-            await this.hideLoadingScreen();
-            await this.loadInitialData();
+            if (hasInitialWeatherData) {
+                await this.loadSupportingData();
+            } else {
+                await this.loadInitialData();
+            }
         } catch (error) {
             console.error('Failed to initialize app:', error);
             this.showMessage(this.t('startupError'), 'error');
@@ -87,18 +96,43 @@ class WeatherApp {
     }
 
     async hideLoadingScreen() {
-        return new Promise(resolve => {
-            setTimeout(() => {
-                const loadingScreen = document.getElementById('loadingScreen');
-                const mainContent = document.getElementById('mainContent');
-                
-                if (loadingScreen) loadingScreen.style.display = 'none';
-                if (mainContent) mainContent.style.display = 'block';
-                
-                document.body.style.overflow = 'auto';
-                resolve();
-            }, 1000);
+        const loadingScreen = document.getElementById('loadingScreen');
+        const mainContent = document.getElementById('mainContent');
+
+        if (loadingScreen) loadingScreen.hidden = true;
+        if (mainContent) mainContent.style.display = '';
+
+        document.body.style.overflow = 'auto';
+    }
+
+    renderInitialWeatherData() {
+        const data = typeof INITIAL_WEATHER_DATA !== 'undefined' ? INITIAL_WEATHER_DATA : null;
+        const expectedDate = this.formatDateForAPI(this.currentDate);
+
+        if (!data || data.date !== expectedDate) {
+            return false;
+        }
+
+        this.currentWeatherData = data;
+        this.updatePrimaryWeatherDisplay(data, {
+            updateUrl: this.shouldUpdateDateUrl
         });
+        this.updateDateDisplay();
+
+        return true;
+    }
+
+    async loadSupportingData() {
+        this.showLoading();
+
+        try {
+            await Promise.all([
+                this.loadSelectedChartRange(),
+                this.loadMonthlyStats()
+            ]);
+        } finally {
+            this.hideLoading();
+        }
     }
 
     setupEventListeners() {
@@ -317,7 +351,9 @@ class WeatherApp {
         }
 
         if (this.currentWeatherData) {
-            this.updatePrimaryWeatherDisplay(this.currentWeatherData);
+            this.updatePrimaryWeatherDisplay(this.currentWeatherData, {
+                updateUrl: this.shouldUpdateDateUrl
+            });
         }
 
         if (this.currentComparisonData) {
@@ -419,7 +455,10 @@ class WeatherApp {
 
         const basePath = typeof APP_BASE_PATH === 'string' ? APP_BASE_PATH.replace(/\/$/, '') : '';
         const datePath = `${basePath}/${dateString}`;
-        const absoluteDateUrl = new URL(datePath, window.location.origin).href;
+        const canonicalBase = typeof SITE_BASE_URL === 'string'
+            ? SITE_BASE_URL.replace(/\/$/, '')
+            : window.location.origin;
+        const absoluteDateUrl = `${canonicalBase}/${encodeURIComponent(dateString)}`;
         const canonical = document.querySelector('link[rel="canonical"]');
         const ogUrl = document.querySelector('meta[property="og:url"]');
 
@@ -528,15 +567,21 @@ class WeatherApp {
 
     async loadInitialData() {
         try {
-            await this.loadWeatherData();
+            await this.loadWeatherData({
+                updateUrl: this.shouldUpdateDateUrl
+            });
         } catch (error) {
             this.showMessage(this.t('initialLoadError'), 'error');
         }
     }
 
-    async loadWeatherData() {
+    async loadWeatherData(options = {}) {
         if (this.isLoading) return;
         
+        const { updateUrl = true } = options;
+        if (updateUrl) {
+            this.shouldUpdateDateUrl = true;
+        }
         this.isLoading = true;
         this.showLoading();
         
@@ -545,14 +590,13 @@ class WeatherApp {
             const data = await this.api.fetchWeatherData(dateStr);
             
             this.currentWeatherData = data;
-            this.updatePrimaryWeatherDisplay(data);
+            this.updatePrimaryWeatherDisplay(data, { updateUrl });
             this.updateDateDisplay();
             
-            // Load chart data for the selected range
-            await this.loadSelectedChartRange();
-            
-            // Load monthly stats for the new month
-            await this.loadMonthlyStats();
+            await Promise.all([
+                this.loadSelectedChartRange(),
+                this.loadMonthlyStats()
+            ]);
             
         } catch (error) {
             console.error('Error loading weather data:', error);
@@ -808,14 +852,18 @@ class WeatherApp {
         }
     }
 
-    updatePrimaryWeatherDisplay(data) {
+    updatePrimaryWeatherDisplay(data, options = {}) {
+        const { updateUrl = true } = options;
+
         // Update title
         const titleEl = document.getElementById('primaryDayTitle');
         if (titleEl) {
             titleEl.innerHTML = `<i class="bi bi-calendar-check me-2"></i>${this.formatDisplayDate(data.date)}`;
         }
         this.updatePageTitle(data.date);
-        this.updateBrowserDateUrl(data.date);
+        if (updateUrl) {
+            this.updateBrowserDateUrl(data.date);
+        }
 
         // Temperature
         this.updateElement('primaryTemp', this.formatTemperature(data.temperature.avg));
@@ -1232,19 +1280,19 @@ class WeatherApp {
     }
 
     formatWindSpeed(value) {
-        return value !== null && value !== undefined ? `${value} km/h` : '-- km/h';
+        return value !== null && value !== undefined ? `${value}\u00a0km/h` : '--\u00a0km/h';
     }
 
     formatPrecipitation(value) {
-        return value !== null && value !== undefined ? `${value} mm` : '-- mm';
+        return value !== null && value !== undefined ? `${value}\u00a0mm` : '--\u00a0mm';
     }
 
     formatDuration(value) {
-        return value !== null && value !== undefined ? `${value} ${this.t('hours')}` : `-- ${this.t('hours')}`;
+        return value !== null && value !== undefined ? `${value}\u00a0${this.t('hours')}` : `--\u00a0${this.t('hours')}`;
     }
 
     formatPressure(value) {
-        return value !== null && value !== undefined ? `${value} hPa` : '-- hPa';
+        return value !== null && value !== undefined ? `${value}\u00a0hPa` : '--\u00a0hPa';
     }
 
     renderWindDirection(wind, indicatorClass = '') {

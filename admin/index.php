@@ -294,7 +294,7 @@ $activity = array_reverse($_SESSION['admin_activity'] ?? []);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KNMI Admin Panel</title>
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='14'%3E%E2%98%80%EF%B8%8F%3C/text%3E%3C/svg%3E">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.1/font/bootstrap-icons.min.css" rel="stylesheet">
     <link href="css/admin-style.css" rel="stylesheet">

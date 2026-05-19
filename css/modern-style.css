@@ -14,7 +14,7 @@
     --metric-bg: #eef7ff;
     --metric-comparison-bg: rgba(217, 79, 92, 0.12);
     --text-main: #172033;
-    --text-muted: #65758b;
+    --text-muted: #526071;
     --border-soft: rgba(20, 52, 85, 0.12);
     --shadow-soft: 0 8px 26px rgba(17, 40, 68, 0.12);
     --shadow-hover: 0 14px 34px rgba(17, 40, 68, 0.16);
@@ -36,7 +36,7 @@
     --metric-bg: #17324a;
     --metric-comparison-bg: rgba(255, 133, 143, 0.16);
     --text-main: #edf4fb;
-    --text-muted: #aebdca;
+    --text-muted: #c8d5e0;
     --border-soft: rgba(196, 217, 236, 0.16);
     --shadow-soft: 0 8px 26px rgba(0, 0, 0, 0.34);
     --shadow-hover: 0 14px 34px rgba(0, 0, 0, 0.42);
@@ -50,32 +50,6 @@ body {
     min-height: 100vh;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     overflow-x: hidden;
-}
-
-/* Loading Screen */
-.loading-screen {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: var(--page-bg);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 9999;
-    color: var(--text-main);
-}
-
-.spinner-container {
-    text-align: center;
-}
-
-.weather-spinner {
-    font-size: 4rem;
-    margin-bottom: 1rem;
-    animation: spin 2s linear infinite;
-    color: var(--primary-blue);
 }
 
 @keyframes spin {
@@ -219,11 +193,14 @@ body {
     font-size: 0.92rem;
     line-height: 1.25;
     min-width: 0;
-    overflow-wrap: anywhere;
+    overflow-wrap: normal;
+    word-break: normal;
 }
 
 .weather-metric .metric-label {
-    flex: 1 1 7.5rem;
+    flex: 1 1 auto;
+    hyphens: none;
+    white-space: nowrap;
 }
 
 .weather-metric small,
@@ -239,10 +216,12 @@ small.text-muted {
     color: var(--primary-blue);
     transition: all 0.3s ease;
     text-align: right;
-    overflow-wrap: anywhere;
     flex: 0 0 auto;
-    max-width: 55%;
+    max-width: none;
     min-width: 0;
+    overflow-wrap: normal;
+    white-space: nowrap;
+    word-break: normal;
 }
 
 .wind-value {
@@ -412,7 +391,7 @@ small.text-muted {
     color: var(--text-main);
     min-height: 92px;
     white-space: normal;
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
 }
 
 .quick-action:hover {
@@ -593,12 +572,12 @@ a {
     }
 
     .weather-metric .d-flex {
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
     }
 
     .metric-value {
-        max-width: 100%;
-        text-align: left;
+        max-width: none;
+        text-align: right;
     }
     
     .wind-indicator {
@@ -748,10 +727,6 @@ a {
         transition-duration: 0.01ms !important;
         scroll-behavior: auto !important;
     }
-    
-    .weather-spinner {
-        animation: none;
-    }
 }
 
 /* Focus Styles for Accessibility */
@@ -813,12 +788,12 @@ a {
 /* Additional Weather Metric Styles */
 .weather-metric .metric-label {
     font-size: 0.9rem;
-    color: #666;
+    color: var(--text-main);
 }
 
 .weather-metric .metric-unit {
     font-size: 0.8rem;
-    color: #999;
+    color: var(--text-muted);
     margin-left: 0.25rem;
 }
 
@@ -944,7 +919,7 @@ a {
 
 .chart-container.loading::before {
     content: 'Grafiek wordt geladen...';
-    color: #666;
+    color: var(--text-muted);
     font-size: 1.1rem;
 }
 
@@ -1008,7 +983,7 @@ a {
 .error-state {
     text-align: center;
     padding: 2rem;
-    color: #666;
+    color: var(--text-muted);
 }
 
 .error-state i {
@@ -1089,11 +1064,22 @@ a {
     /* Tekst responsive maken */
     .weather-metric span {
         font-size: 0.85rem !important;
-        word-wrap: break-word;
     }
     
     .metric-value {
         font-size: 0.9rem !important;
+    }
+}
+
+@media (max-width: 420px) {
+    .weather-metric .d-flex {
+        align-items: flex-start !important;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .metric-value {
+        text-align: left;
     }
 }
 
