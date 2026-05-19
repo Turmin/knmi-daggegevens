@@ -78,7 +78,7 @@ if($_SERVER['REQUEST_METHOD'] == 'POST') {
 <title>Update - Daggegevens</title>
 <link rel="stylesheet" href="css/style.min.css" type="text/css">
 <link rel="stylesheet" href="css/account.min.css" type="text/css">
-<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
 <style type="text/css">
 </style>
 </head>

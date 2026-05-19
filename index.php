@@ -36,16 +36,27 @@ function getDatePathFromRequest() {
     return null;
 }
 
-function siteBaseUrl() {
-    $scheme = 'http';
-    if (
-        (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-        || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https')
-    ) {
-        $scheme = 'https';
-    }
+function requestIsSecure() {
+    $forwardedProto = strtolower(trim(explode(',', (string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''))[0]));
 
-    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    return (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || $forwardedProto === 'https'
+        || (($_SERVER['HTTP_X_FORWARDED_SSL'] ?? '') === 'on')
+        || (($_SERVER['HTTP_FRONT_END_HTTPS'] ?? '') === 'on')
+        || (($_SERVER['SERVER_PORT'] ?? '') === '443')
+        || stripos((string)($_SERVER['HTTP_CF_VISITOR'] ?? ''), '"scheme":"https"') !== false;
+}
+
+function isLocalHostName($host) {
+    $hostOnly = strtolower(preg_replace('/:\d+$/', '', (string)$host));
+    return in_array($hostOnly, ['localhost', '127.0.0.1', '::1'], true);
+}
+
+function siteBaseUrl() {
+    $host = $_SERVER['HTTP_HOST'] ?? 'knmi.turmin.com';
+    $scheme = isLocalHostName($host)
+        ? (requestIsSecure() ? 'https' : 'http')
+        : 'https';
     $scriptDir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? ''));
     $scriptDir = $scriptDir === '/' ? '' : rtrim($scriptDir, '/');
 
@@ -55,6 +66,14 @@ function siteBaseUrl() {
 function appBasePath() {
     $scriptDir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? ''));
     return $scriptDir === '/' ? '' : rtrim($scriptDir, '/');
+}
+
+function appAssetPath($path) {
+    return appBasePath() . '/' . ltrim($path, '/');
+}
+
+function homePageUrl() {
+    return siteBaseUrl() . '/';
 }
 
 function datePageUrl($date) {
@@ -198,7 +217,8 @@ if ($requestedDate && isValidDateString($requestedDate) && $requestedDate >= $fi
     $requestedDateIsCanonical = $datePathFromRequest === $requestedDate;
 }
 
-$canonicalUrl = datePageUrl($defaultDate);
+$isHomeRequest = !$requestedDate && !$datePathFromRequest;
+$canonicalUrl = $isHomeRequest ? homePageUrl() : datePageUrl($defaultDate);
 
 if (
     $requestedDate
@@ -227,6 +247,14 @@ $pageTitle = $pageLanguage === 'en'
     : 'Het weer op ' . $pageDate . ' - KNMI Daggegevens';
 $pageDescription = weatherMetaDescription($initialWeatherData, $pageDate, $pageLanguage);
 $documents = getDocumentLinks();
+$faviconHref = appAssetPath('favicon.svg');
+$initialWeatherJson = json_encode(
+    $initialWeatherData,
+    JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT
+);
+if ($initialWeatherJson === false) {
+    $initialWeatherJson = 'null';
+}
 ?>
 <!DOCTYPE html>
 <html lang="<?php echo h($pageLanguage); ?>" data-theme="light">
@@ -235,7 +263,9 @@ $documents = getDocumentLinks();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo h($pageTitle); ?></title>
     <link rel="canonical" href="<?php echo h($canonicalUrl); ?>">
-    <link rel="icon" type="image/x-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14'>☀️</text></svg>">
+    <link rel="icon" type="image/svg+xml" href="<?php echo h($faviconHref); ?>">
+    <link rel="shortcut icon" href="<?php echo h($faviconHref); ?>">
+    <meta name="theme-color" content="#0a66c2">
     <meta name="description" content="<?php echo h($pageDescription); ?>">
     <meta name="keywords" content="knmi, weer, weerstatistieken, temperatuur, neerslag, verdamping, zonneschijnduur, straling, bedekkingsgraad, zicht, luchtvochtigheid">
     <script>
@@ -256,9 +286,10 @@ $documents = getDocumentLinks();
     <meta property="og:description" content="<?php echo h($pageDescription); ?>">
     
     <!-- Bootstrap CSS -->
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
     <!-- Chart.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.js" defer></script>
     <!-- Bootstrap Icons -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.1/font/bootstrap-icons.min.css" rel="stylesheet">
     
@@ -266,18 +297,7 @@ $documents = getDocumentLinks();
     <link rel="stylesheet" href="css/modern-style.css?v=<?php echo filemtime(__DIR__ . '/css/modern-style.css'); ?>">
 </head>
 <body>
-    <!-- Loading Screen -->
-    <div id="loadingScreen" class="loading-screen">
-        <div class="spinner-container">
-            <div class="weather-spinner">
-                <i class="bi bi-cloud-sun"></i>
-            </div>
-            <h3 data-i18n="appName">KNMI Daggegevens</h3>
-            <p data-i18n="loadingApp">Weerdata wordt geladen...</p>
-        </div>
-    </div>
-
-    <div class="container-fluid main-container" id="mainContent" style="display: none;">
+    <div class="container-fluid main-container" id="mainContent">
         <!-- Header -->
         <div class="row mb-4">
             <div class="col-12">
@@ -750,6 +770,7 @@ $documents = getDocumentLinks();
                         <span id="lastUpdateText" data-update-time="<?php echo date('c'); ?>">Laatste update: <?php echo date('d-m-Y H:i'); ?></span> •
                         <span id="lastRefreshText"></span>
                         <span id="lastRefreshSeparator" style="display: none;"> • </span>
+                        <a href="<?php echo h(appAssetPath('precipitation.php')); ?>" class="text-decoration-none" data-i18n="annualPrecipitation">Jaarlijkse neerslag</a> •
                         <a href="javascript:void(0)" id="aboutBtn" class="text-decoration-none" data-i18n="aboutSite">Over deze website</a> •
                         <a href="javascript:void(0)" id="helpBtn" class="text-decoration-none" data-i18n="helpShortcuts">Help & Sneltoetsen</a>
                     </p>
@@ -838,12 +859,14 @@ $documents = getDocumentLinks();
 
     <!-- JavaScript Configuration -->
     <script>
-        // Configuration - Pas dit aan naar jouw setup
-        const API_BASE_URL = 'api/weather.php';  // Of gebruik volledige URL: 'http://yoursite.com/api/weather.php'
+        const API_BASE_URL = 'api/weather.php';
         const FIRST_DATE = '<?php echo h($firstDate); ?>';
         const LAST_DATE = '<?php echo h($lastDate); ?>';
         const DEFAULT_DATE = '<?php echo h($defaultDate); ?>';
         const APP_BASE_PATH = '<?php echo h(appBasePath()); ?>';
+        const SITE_BASE_URL = '<?php echo h(siteBaseUrl()); ?>';
+        const INITIAL_PAGE_IS_DATE_PAGE = <?php echo $isHomeRequest ? 'false' : 'true'; ?>;
+        const INITIAL_WEATHER_DATA = <?php echo $initialWeatherJson; ?>;
     </script>
 
     <!-- External Scripts -->

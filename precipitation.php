@@ -5,6 +5,40 @@ function h($value) {
     return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
 }
 
+function requestIsSecure() {
+    $forwardedProto = strtolower(trim(explode(',', (string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''))[0]));
+
+    return (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || $forwardedProto === 'https'
+        || (($_SERVER['HTTP_X_FORWARDED_SSL'] ?? '') === 'on')
+        || (($_SERVER['HTTP_FRONT_END_HTTPS'] ?? '') === 'on')
+        || (($_SERVER['SERVER_PORT'] ?? '') === '443')
+        || stripos((string)($_SERVER['HTTP_CF_VISITOR'] ?? ''), '"scheme":"https"') !== false;
+}
+
+function isLocalHostName($host) {
+    $hostOnly = strtolower(preg_replace('/:\d+$/', '', (string)$host));
+    return in_array($hostOnly, ['localhost', '127.0.0.1', '::1'], true);
+}
+
+function appBasePath() {
+    $scriptDir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? ''));
+    return $scriptDir === '/' ? '' : rtrim($scriptDir, '/');
+}
+
+function appAssetPath($path) {
+    return appBasePath() . '/' . ltrim($path, '/');
+}
+
+function siteBaseUrl() {
+    $host = $_SERVER['HTTP_HOST'] ?? 'knmi.turmin.com';
+    $scheme = isLocalHostName($host)
+        ? (requestIsSecure() ? 'https' : 'http')
+        : 'https';
+
+    return $scheme . '://' . $host . appBasePath();
+}
+
 $rows = [];
 $error = null;
 
@@ -44,6 +78,8 @@ $average = $rows ? round($total / count($rows), 1) : null;
 $downloadFilename = $firstYear && $lastYear
     ? 'precipitation-' . $firstYear . '-' . $lastYear . '.png'
     : 'precipitation-chart.png';
+$canonicalUrl = siteBaseUrl() . '/precipitation.php';
+$faviconHref = appAssetPath('favicon.svg');
 ?>
 <!DOCTYPE html>
 <html lang="en" data-theme="light">
@@ -51,6 +87,10 @@ $downloadFilename = $firstYear && $lastYear
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Yearly precipitation - KNMI Daily Data</title>
+    <link rel="canonical" href="<?php echo h($canonicalUrl); ?>">
+    <link rel="icon" type="image/svg+xml" href="<?php echo h($faviconHref); ?>">
+    <link rel="shortcut icon" href="<?php echo h($faviconHref); ?>">
+    <meta name="theme-color" content="#0a66c2">
     <meta name="description" content="Interactive yearly precipitation chart for KNMI daily data from De Bilt.">
     <script>
         (function() {
@@ -59,6 +99,7 @@ $downloadFilename = $firstYear && $lastYear
             document.documentElement.dataset.theme = savedTheme || preferredTheme;
         })();
     </script>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.1/font/bootstrap-icons.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.js"></script>
