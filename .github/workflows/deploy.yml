@@ -1,0 +1,56 @@
+name: Deploy website via FTPS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Upload website
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Prepare deploy folder
+        run: |
+          mkdir -p .deploy
+
+          rsync -av \
+            --exclude='.env' \
+            --exclude='*.sql' \
+            --exclude='*.zip' \
+            --exclude='*.tar' \
+            --exclude='*.tar.gz' \
+            --exclude='*.bak' \
+            --exclude='*.backup' \
+            --exclude='*.old' \
+            --exclude='*.log' \
+            --exclude='*.txt' \
+            --include='*/' \
+            --include='*.php' \
+            --include='*.html' \
+            --include='css/***' \
+            --include='js/***' \
+            --include='images/***' \
+            --include='admin/***' \
+            --include='api/***' \
+            --include='doc/***' \
+            --include='lib/***' \
+            --include='models/***' \
+            --exclude='*' \
+            ./ .deploy/
+
+      - name: Deploy via FTPS
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.6
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          local-dir: ./.deploy/
+          server-dir: ${{ secrets.FTP_REMOTE_DIR }}
