@@ -35,6 +35,10 @@ jobs:
             --include='*/' \
             --include='*.php' \
             --include='*.html' \
+            --include='favicon.svg' \
+            --include='robots.txt' \
+            --include='sw.js' \
+            --include='manifest.json' \
             --include='css/***' \
             --include='js/***' \
             --include='images/***' \
