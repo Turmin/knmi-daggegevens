@@ -181,8 +181,9 @@ body {
 }
 
 .weather-metric .d-flex {
+    display: grid !important;
     gap: 0.6rem;
-    flex-wrap: nowrap;
+    grid-template-columns: minmax(min-content, 1fr) max-content;
     align-items: center !important;
 }
 
@@ -200,7 +201,7 @@ body {
 .weather-metric .metric-label {
     flex: 1 1 auto;
     hyphens: none;
-    white-space: nowrap;
+    white-space: normal;
 }
 
 .weather-metric small,
@@ -572,7 +573,7 @@ a {
     }
 
     .weather-metric .d-flex {
-        flex-wrap: nowrap;
+        grid-template-columns: minmax(min-content, 1fr) max-content;
     }
 
     .metric-value {
@@ -1074,8 +1075,8 @@ a {
 @media (max-width: 420px) {
     .weather-metric .d-flex {
         align-items: flex-start !important;
-        flex-direction: column;
         gap: 0.25rem;
+        grid-template-columns: 1fr;
     }
 
     .metric-value {
@@ -1207,10 +1208,26 @@ a {
 }
 
 .chart-controls .btn-group {
+    flex-direction: row !important;
     flex-wrap: nowrap !important;
+    width: auto !important;
 }
 
 .chart-controls .btn-group > .btn {
+    flex: 1 1 0;
+    margin: 0 !important;
+    min-width: 0;
+    white-space: nowrap;
+}
+
+.precipitation-chart-actions {
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    width: auto !important;
+}
+
+.precipitation-chart-actions > .btn {
+    flex: 0 0 auto;
     margin: 0 !important;
 }
 
