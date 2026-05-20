@@ -579,13 +579,17 @@ if ($initialWeatherJson === false) {
                                         </span>
                                     </div>
                                 </div>
-                                <div class="weather-metric">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <span class="metric-label" data-i18n="minMax">Min/Max</span>
-                                        <span class="metric-value metric-range-value" id="primaryPressureRange">
-                                            <div class="loading-placeholder">--/-- hPa</div>
+                                <div class="weather-metric metric-range-metric">
+                                    <span class="metric-value metric-range-value" id="primaryPressureRange">
+                                        <span class="metric-range-row">
+                                            <span class="metric-range-prefix" data-i18n="minimumShort">Min</span>
+                                            <span class="metric-range-number">--&nbsp;hPa</span>
                                         </span>
-                                    </div>
+                                        <span class="metric-range-row">
+                                            <span class="metric-range-prefix" data-i18n="maximumShort">Max</span>
+                                            <span class="metric-range-number">--&nbsp;hPa</span>
+                                        </span>
+                                    </span>
                                 </div>
                             </div>
                             <div class="col-md-6">
@@ -600,13 +604,17 @@ if ($initialWeatherJson === false) {
                                         </span>
                                     </div>
                                 </div>
-                                <div class="weather-metric">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <span class="metric-label" data-i18n="minMax">Min/Max</span>
-                                        <span class="metric-value metric-range-value" id="primaryHumidityRange">
-                                            <div class="loading-placeholder">--/--%</div>
+                                <div class="weather-metric metric-range-metric">
+                                    <span class="metric-value metric-range-value" id="primaryHumidityRange">
+                                        <span class="metric-range-row">
+                                            <span class="metric-range-prefix" data-i18n="minimumShort">Min</span>
+                                            <span class="metric-range-number">--%</span>
                                         </span>
-                                    </div>
+                                        <span class="metric-range-row">
+                                            <span class="metric-range-prefix" data-i18n="maximumShort">Max</span>
+                                            <span class="metric-range-number">--%</span>
+                                        </span>
+                                    </span>
                                 </div>
                             </div>
                         </div>

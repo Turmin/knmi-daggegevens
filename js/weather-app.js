@@ -893,11 +893,11 @@ class WeatherApp {
 
         // Pressure & Humidity
         this.updateElement('primaryPressure', this.formatPressure(data.pressure.avg));
-        this.updateElement('primaryPressureRange', 
-            `${this.formatPressure(data.pressure.min)}/${this.formatPressure(data.pressure.max)}`);
+        this.updateElementHtml('primaryPressureRange',
+            this.renderRangeValue(this.formatPressure(data.pressure.min), this.formatPressure(data.pressure.max)));
         this.updateElement('primaryHumidity', data.humidity.avg ? `${data.humidity.avg}%` : '--');
-        this.updateElement('primaryHumidityRange', 
-            `${data.humidity.min || '--'}%/${data.humidity.max || '--'}%`);
+        this.updateElementHtml('primaryHumidityRange',
+            this.renderRangeValue(this.formatPercent(data.humidity.min), this.formatPercent(data.humidity.max)));
     }
 
     updateComparisonWeatherDisplay(data) {
@@ -1055,11 +1055,8 @@ class WeatherApp {
                             <span class="metric-value comparison-value">${this.formatPressure(data.pressure.avg)}</span>
                         </div>
                     </div>
-                    <div class="weather-metric comparison-metric">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <span class="metric-label">${this.t('minMax')}</span>
-                            <span class="metric-value comparison-value metric-range-value">${this.formatPressure(data.pressure.min)}/${this.formatPressure(data.pressure.max)}</span>
-                        </div>
+                    <div class="weather-metric comparison-metric metric-range-metric">
+                        <span class="metric-value comparison-value metric-range-value">${this.renderRangeValue(this.formatPressure(data.pressure.min), this.formatPressure(data.pressure.max))}</span>
                     </div>
                 </div>
                 <div class="col-md-6">
@@ -1072,11 +1069,8 @@ class WeatherApp {
                             <span class="metric-value comparison-value">${data.humidity.avg ? `${data.humidity.avg}%` : '--'}</span>
                         </div>
                     </div>
-                    <div class="weather-metric comparison-metric">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <span class="metric-label">${this.t('minMax')}</span>
-                            <span class="metric-value comparison-value metric-range-value">${data.humidity.min || '--'}%/${data.humidity.max || '--'}%</span>
-                        </div>
+                    <div class="weather-metric comparison-metric metric-range-metric">
+                        <span class="metric-value comparison-value metric-range-value">${this.renderRangeValue(this.formatPercent(data.humidity.min), this.formatPercent(data.humidity.max))}</span>
                     </div>
                 </div>
             </div>
@@ -1250,6 +1244,36 @@ class WeatherApp {
         }
     }
 
+    updateElementHtml(id, value) {
+        const element = document.getElementById(id);
+        if (element) {
+            element.innerHTML = value;
+        }
+    }
+
+    escapeHtml(value) {
+        return String(value).replace(/[&<>"']/g, char => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        })[char]);
+    }
+
+    renderRangeValue(minValue, maxValue) {
+        return `
+            <span class="metric-range-row">
+                <span class="metric-range-prefix">${this.escapeHtml(this.t('minimumShort'))}</span>
+                <span class="metric-range-number">${this.escapeHtml(minValue)}</span>
+            </span>
+            <span class="metric-range-row">
+                <span class="metric-range-prefix">${this.escapeHtml(this.t('maximumShort'))}</span>
+                <span class="metric-range-number">${this.escapeHtml(maxValue)}</span>
+            </span>
+        `;
+    }
+
     getElementText(id) {
         const element = document.getElementById(id);
         return element ? element.textContent : '';
@@ -1293,6 +1317,10 @@ class WeatherApp {
 
     formatPressure(value) {
         return value !== null && value !== undefined ? `${value}\u00a0hPa` : '--\u00a0hPa';
+    }
+
+    formatPercent(value) {
+        return value !== null && value !== undefined ? `${value}%` : '--%';
     }
 
     renderWindDirection(wind, indicatorClass = '') {

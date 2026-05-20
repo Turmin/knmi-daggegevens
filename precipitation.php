@@ -59,6 +59,7 @@ $translations = [
         'period' => 'Periode',
         'averagePerYear' => 'Gemiddeld per jaar',
         'wettestYear' => 'Natste jaar:',
+        'driestYear' => 'Droogste jaar:',
         'precipitationByYear' => 'Neerslag per jaar',
         'barChart' => 'Staafdiagram',
         'lineChart' => 'Lijndiagram',
@@ -93,6 +94,7 @@ $translations = [
         'period' => 'Period',
         'averagePerYear' => 'Average per year',
         'wettestYear' => 'Wettest year:',
+        'driestYear' => 'Driest year:',
         'precipitationByYear' => 'Precipitation by year',
         'barChart' => 'Bar chart',
         'lineChart' => 'Line chart',
@@ -137,6 +139,7 @@ try {
 $firstYear = $rows ? (int)$rows[0]['year'] : null;
 $lastYear = $rows ? (int)$rows[count($rows) - 1]['year'] : null;
 $wettest = null;
+$driest = null;
 $total = 0.0;
 
 foreach ($rows as $row) {
@@ -144,6 +147,9 @@ foreach ($rows as $row) {
     $total += $amount;
     if ($wettest === null || $amount > (float)$wettest['precipitation_mm']) {
         $wettest = $row;
+    }
+    if ($driest === null || $amount < (float)$driest['precipitation_mm']) {
+        $driest = $row;
     }
 }
 
@@ -235,7 +241,7 @@ $faviconHref = appAssetPath('favicon.svg');
                     </div>
                     <div class="card-body">
                         <div class="row g-3 metric-card-grid">
-                            <div class="col-md-4">
+                            <div class="col-md-6 col-xl-3">
                                 <div class="weather-metric monthly-stat">
                                     <i class="bi bi-calendar-range text-primary fs-3"></i>
                                     <div>
@@ -244,7 +250,7 @@ $faviconHref = appAssetPath('favicon.svg');
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-6 col-xl-3">
                                 <div class="weather-metric monthly-stat">
                                     <i class="bi bi-droplet text-info fs-3"></i>
                                     <div>
@@ -253,7 +259,7 @@ $faviconHref = appAssetPath('favicon.svg');
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-6 col-xl-3">
                                 <div class="weather-metric monthly-stat">
                                     <i class="bi bi-cloud-arrow-down text-success fs-3"></i>
                                     <div>
@@ -261,6 +267,18 @@ $faviconHref = appAssetPath('favicon.svg');
                                         <small>
                                             <span data-i18n="wettestYear"><?php echo h($text['wettestYear']); ?></span>
                                             <?php echo h(number_format((float)$wettest['precipitation_mm'], 1, '.', '')); ?>&nbsp;mm
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 col-xl-3">
+                                <div class="weather-metric monthly-stat">
+                                    <i class="bi bi-sun text-warning fs-3"></i>
+                                    <div>
+                                        <div class="metric-value"><?php echo h($driest['year']); ?></div>
+                                        <small>
+                                            <span data-i18n="driestYear"><?php echo h($text['driestYear']); ?></span>
+                                            <?php echo h(number_format((float)$driest['precipitation_mm'], 1, '.', '')); ?>&nbsp;mm
                                         </small>
                                     </div>
                                 </div>
