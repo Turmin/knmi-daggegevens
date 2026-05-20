@@ -55,6 +55,7 @@ $translations = [
         'backHome' => 'Terug naar daggegevens',
         'loadError' => 'Neerslaggegevens konden niet worden geladen.',
         'noData' => 'Er zijn geen neerslaggegevens beschikbaar.',
+        'overview' => 'Overzicht',
         'period' => 'Periode',
         'averagePerYear' => 'Gemiddeld per jaar',
         'wettestYear' => 'Natste jaar:',
@@ -88,6 +89,7 @@ $translations = [
         'backHome' => 'Back to daily data',
         'loadError' => 'Precipitation data could not be loaded.',
         'noData' => 'No precipitation data is available.',
+        'overview' => 'Overview',
         'period' => 'Period',
         'averagePerYear' => 'Average per year',
         'wettestYear' => 'Wettest year:',
@@ -225,44 +227,43 @@ $faviconHref = appAssetPath('favicon.svg');
         <?php elseif (!$rows): ?>
         <div class="alert alert-warning" role="alert" data-i18n="noData"><?php echo h($text['noData']); ?></div>
         <?php else: ?>
-        <div class="row g-4 mb-4">
-            <div class="col-md-4">
-                <div class="weather-card h-100">
-                    <div class="card-body">
-                        <div class="weather-metric monthly-stat">
-                            <i class="bi bi-calendar-range text-primary fs-3"></i>
-                            <div>
-                                <div class="metric-value"><?php echo h($firstYear . '-' . $lastYear); ?></div>
-                                <small data-i18n="period"><?php echo h($text['period']); ?></small>
-                            </div>
-                        </div>
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="weather-card">
+                    <div class="card-header">
+                        <h4 class="mb-0"><i class="bi bi-cloud-rain-heavy me-2"></i><span data-i18n="overview"><?php echo h($text['overview']); ?></span></h4>
                     </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="weather-card h-100">
                     <div class="card-body">
-                        <div class="weather-metric monthly-stat">
-                            <i class="bi bi-droplet text-info fs-3"></i>
-                            <div>
-                                <div class="metric-value"><?php echo h(number_format($average, 1, '.', '')); ?>&nbsp;mm</div>
-                                <small data-i18n="averagePerYear"><?php echo h($text['averagePerYear']); ?></small>
+                        <div class="row g-3 metric-card-grid">
+                            <div class="col-md-4">
+                                <div class="weather-metric monthly-stat">
+                                    <i class="bi bi-calendar-range text-primary fs-3"></i>
+                                    <div>
+                                        <div class="metric-value"><?php echo h($firstYear . '-' . $lastYear); ?></div>
+                                        <small data-i18n="period"><?php echo h($text['period']); ?></small>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="weather-card h-100">
-                    <div class="card-body">
-                        <div class="weather-metric monthly-stat">
-                            <i class="bi bi-cloud-arrow-down text-success fs-3"></i>
-                            <div>
-                                <div class="metric-value"><?php echo h($wettest['year']); ?></div>
-                                <small>
-                                    <span data-i18n="wettestYear"><?php echo h($text['wettestYear']); ?></span>
-                                    <?php echo h(number_format((float)$wettest['precipitation_mm'], 1, '.', '')); ?>&nbsp;mm
-                                </small>
+                            <div class="col-md-4">
+                                <div class="weather-metric monthly-stat">
+                                    <i class="bi bi-droplet text-info fs-3"></i>
+                                    <div>
+                                        <div class="metric-value"><?php echo h(number_format($average, 1, '.', '')); ?>&nbsp;mm</div>
+                                        <small data-i18n="averagePerYear"><?php echo h($text['averagePerYear']); ?></small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="weather-metric monthly-stat">
+                                    <i class="bi bi-cloud-arrow-down text-success fs-3"></i>
+                                    <div>
+                                        <div class="metric-value"><?php echo h($wettest['year']); ?></div>
+                                        <small>
+                                            <span data-i18n="wettestYear"><?php echo h($text['wettestYear']); ?></span>
+                                            <?php echo h(number_format((float)$wettest['precipitation_mm'], 1, '.', '')); ?>&nbsp;mm
+                                        </small>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

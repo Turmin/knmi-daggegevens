@@ -204,6 +204,19 @@ body {
     white-space: normal;
 }
 
+.metric-label > small,
+.metric-label > .metric-subtext {
+    display: block !important;
+    font-size: 0.78rem;
+    line-height: 1.2;
+    margin-top: 0.12rem;
+}
+
+.metric-label > small:empty,
+.metric-label > .metric-subtext:empty {
+    display: none !important;
+}
+
 .weather-metric small,
 .text-muted,
 small.text-muted {
@@ -223,6 +236,13 @@ small.text-muted {
     overflow-wrap: normal;
     white-space: nowrap;
     word-break: normal;
+}
+
+.metric-range-value {
+    font-size: 0.98rem;
+    line-height: 1.18;
+    overflow-wrap: normal;
+    white-space: normal;
 }
 
 .wind-value {
@@ -302,6 +322,17 @@ small.text-muted {
     padding: 0.75rem;
     margin: 0 0 1rem;
     box-shadow: var(--shadow-soft);
+}
+
+.weather-card .chart-container {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    padding: 0;
+}
+
+.weather-card .chart-container:last-child {
+    margin-bottom: 0;
 }
 
 .chart-controls {
@@ -433,6 +464,20 @@ small.text-muted {
 .comparison-toggle input[type="date"].form-control {
     padding-top: 0.45rem;
     padding-bottom: 0.45rem;
+}
+
+:root[data-theme="dark"] input[type="date"].form-control {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='%23ffffff' d='M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 5v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V5H1z'/%3E%3C/svg%3E");
+    background-position: right 0.75rem center;
+    background-repeat: no-repeat;
+    background-size: 1rem 1rem;
+    color-scheme: dark;
+    padding-right: 2.5rem;
+}
+
+:root[data-theme="dark"] input[type="date"].form-control::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0;
 }
 
 .form-control:disabled,
@@ -640,6 +685,33 @@ a {
 
 #monthlyStatsContent {
     margin-bottom: 0;
+}
+
+.metric-card-grid {
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.metric-card-grid > [class*="col-"] {
+    display: flex;
+}
+
+.metric-card-grid .weather-metric {
+    align-items: center;
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 0;
+    text-align: left;
+    width: 100%;
+}
+
+.metric-card-grid .weather-metric i {
+    flex: 0 0 auto;
+}
+
+.metric-card-grid .metric-value {
+    max-width: none;
+    text-align: left;
 }
 
 #monthlyStatsContent .weather-metric {
@@ -868,6 +940,14 @@ a {
 
 .table-responsive {
     background: transparent;
+}
+
+.weather-card .table-responsive {
+    margin: 0;
+}
+
+.weather-card .table {
+    margin-bottom: 0;
 }
 
 .table-sm td {
@@ -1210,14 +1290,29 @@ a {
 .chart-controls .btn-group {
     flex-direction: row !important;
     flex-wrap: nowrap !important;
-    width: auto !important;
 }
 
 .chart-controls .btn-group > .btn {
-    flex: 1 1 0;
     margin: 0 !important;
     min-width: 0;
     white-space: nowrap;
+}
+
+.chart-controls .chart-range-group {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-left: auto !important;
+    margin-right: auto !important;
+    max-width: 22rem;
+    width: 100% !important;
+}
+
+.chart-controls .chart-range-group > .btn {
+    font-size: 0.88rem;
+    min-width: 0;
+    padding-left: 0.65rem;
+    padding-right: 0.65rem;
+    text-align: center;
 }
 
 .precipitation-chart-actions {

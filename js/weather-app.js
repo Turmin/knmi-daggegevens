@@ -978,7 +978,7 @@ class WeatherApp {
                 <div class="col-md-6">
                     <div class="weather-metric comparison-metric">
                         <div class="d-flex justify-content-between align-items-center">
-                            <span class="metric-label"><span>${this.t('speed')}</span><span class="text-muted metric-subtext">${this.formatBeaufort(data.wind.beaufort)}</span></span>
+                            <span class="metric-label"><span>${this.t('speed')}</span><small class="text-muted metric-subtext">${this.formatBeaufort(data.wind.beaufort)}</small></span>
                             <span class="metric-value comparison-value">${this.formatWindSpeed(data.wind.speed_avg)}</span>
                         </div>
                         <small class="text-muted">${this.t('difference')}: ${windDiff}</small>
@@ -1058,7 +1058,7 @@ class WeatherApp {
                     <div class="weather-metric comparison-metric">
                         <div class="d-flex justify-content-between align-items-center">
                             <span class="metric-label">${this.t('minMax')}</span>
-                            <span class="metric-value comparison-value">${this.formatPressure(data.pressure.min)}/${this.formatPressure(data.pressure.max)}</span>
+                            <span class="metric-value comparison-value metric-range-value">${this.formatPressure(data.pressure.min)}/${this.formatPressure(data.pressure.max)}</span>
                         </div>
                     </div>
                 </div>
@@ -1075,7 +1075,7 @@ class WeatherApp {
                     <div class="weather-metric comparison-metric">
                         <div class="d-flex justify-content-between align-items-center">
                             <span class="metric-label">${this.t('minMax')}</span>
-                            <span class="metric-value comparison-value">${data.humidity.min || '--'}%/${data.humidity.max || '--'}%</span>
+                            <span class="metric-value comparison-value metric-range-value">${data.humidity.min || '--'}%/${data.humidity.max || '--'}%</span>
                         </div>
                     </div>
                 </div>
@@ -1095,7 +1095,7 @@ class WeatherApp {
         const content = document.getElementById('monthlyStatsContent');
         if (content) {
             content.innerHTML = `
-                <div class="col-md-3 text-center">
+                <div class="col-md-3">
                     <div class="weather-metric monthly-stat">
                         <i class="bi bi-thermometer text-primary fs-3"></i>
                         <div>
@@ -1104,7 +1104,7 @@ class WeatherApp {
                         </div>
                     </div>
                 </div>
-                <div class="col-md-3 text-center">
+                <div class="col-md-3">
                     <div class="weather-metric monthly-stat">
                         <i class="bi bi-droplet-fill text-info fs-3"></i>
                         <div>
@@ -1113,7 +1113,7 @@ class WeatherApp {
                         </div>
                     </div>
                 </div>
-                <div class="col-md-3 text-center">
+                <div class="col-md-3">
                     <div class="weather-metric monthly-stat">
                         <i class="bi bi-sun text-warning fs-3"></i>
                         <div>
@@ -1122,7 +1122,7 @@ class WeatherApp {
                         </div>
                     </div>
                 </div>
-                <div class="col-md-3 text-center">
+                <div class="col-md-3">
                     <div class="weather-metric monthly-stat">
                         <i class="bi bi-calendar-date text-success fs-3"></i>
                         <div>

@@ -486,7 +486,7 @@ if ($initialWeatherJson === false) {
                             <div class="col-md-6">
                                 <div class="weather-metric">
                                     <div class="d-flex justify-content-between align-items-center">
-                                        <span class="metric-label"><span data-i18n="speed">Snelheid</span><span id="primaryWindScale" class="text-muted metric-subtext"></span></span>
+                                        <span class="metric-label"><span data-i18n="speed">Snelheid</span><small id="primaryWindScale" class="text-muted metric-subtext"></small></span>
                                         <span class="metric-value" id="primaryWind">
                                             <div class="loading-placeholder">-- km/h</div>
                                         </span>
@@ -582,7 +582,7 @@ if ($initialWeatherJson === false) {
                                 <div class="weather-metric">
                                     <div class="d-flex justify-content-between align-items-center">
                                         <span class="metric-label" data-i18n="minMax">Min/Max</span>
-                                        <span class="metric-value" id="primaryPressureRange">
+                                        <span class="metric-value metric-range-value" id="primaryPressureRange">
                                             <div class="loading-placeholder">--/-- hPa</div>
                                         </span>
                                     </div>
@@ -603,7 +603,7 @@ if ($initialWeatherJson === false) {
                                 <div class="weather-metric">
                                     <div class="d-flex justify-content-between align-items-center">
                                         <span class="metric-label" data-i18n="minMax">Min/Max</span>
-                                        <span class="metric-value" id="primaryHumidityRange">
+                                        <span class="metric-value metric-range-value" id="primaryHumidityRange">
                                             <div class="loading-placeholder">--/--%</div>
                                         </span>
                                     </div>
@@ -669,7 +669,7 @@ if ($initialWeatherJson === false) {
                             <canvas id="mainChart"></canvas>
                         </div>
                         <div class="chart-controls mt-3 text-center">
-                            <div class="btn-group btn-group-sm" role="group">
+                            <div class="btn-group btn-group-sm chart-range-group" role="group">
                                 <button type="button" class="btn btn-outline-secondary" id="chart7Days" data-i18n="days7">7 dagen</button>
                                 <button type="button" class="btn btn-outline-secondary" id="chart30Days" data-i18n="days30">30 dagen</button>
                                 <button type="button" class="btn btn-outline-secondary" id="chartYear" data-i18n="thisYear">Jaar</button>
@@ -690,7 +690,7 @@ if ($initialWeatherJson === false) {
                         </h4>
                     </div>
                     <div class="card-body">
-                        <div class="row g-3" id="monthlyStatsContent">
+                        <div class="row g-3 metric-card-grid" id="monthlyStatsContent">
                             <!-- Monthly statistics will be loaded here -->
                         </div>
                     </div>
