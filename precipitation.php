@@ -129,6 +129,7 @@ try {
         FROM knmi
         WHERE stn = 260
             AND yyyymmdd >= :start_date
+            AND yyyymmdd < MAKEDATE(YEAR(CURDATE()), 1)
         GROUP BY YEAR(yyyymmdd)
         ORDER BY year ASC
     ");
