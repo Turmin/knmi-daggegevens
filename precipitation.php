@@ -114,22 +114,26 @@ $translations = [
 ];
 $text = $translations[$pageLanguage];
 
+$precipitationStartDate = '1906-01-01';
 $rows = [];
 $error = null;
 
 try {
     $database = new Database();
     $db = $database->connect();
-    $stmt = $db->query("
+    $stmt = $db->prepare("
         SELECT
             YEAR(yyyymmdd) AS year,
             ROUND(SUM(CASE WHEN rh < 0 THEN 1 ELSE rh END) * 0.1, 1) AS precipitation_mm,
             SUM(CASE WHEN rh != 0 THEN 1 ELSE 0 END) AS precipitation_days
         FROM knmi
         WHERE stn = 260
+            AND yyyymmdd >= :start_date
         GROUP BY YEAR(yyyymmdd)
         ORDER BY year ASC
     ");
+    $stmt->bindValue(':start_date', $precipitationStartDate, PDO::PARAM_STR);
+    $stmt->execute();
     $rows = $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
 } catch (Throwable $e) {
     error_log('Precipitation page error: ' . $e->getMessage());
