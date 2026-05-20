@@ -4,13 +4,14 @@ on:
   push:
     branches:
       - main
+      - development
   workflow_dispatch:
 
 jobs:
   deploy:
     name: Upload website
     runs-on: ubuntu-latest
-    environment: production
+    environment: ${{ github.ref_name == 'main' && 'production' || 'development' }}
 
     steps:
       - name: Checkout repository
