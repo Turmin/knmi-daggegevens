@@ -227,43 +227,37 @@ $faviconHref = appAssetPath('favicon.svg');
         <?php else: ?>
         <div class="row g-4 mb-4">
             <div class="col-md-4">
-                <div class="weather-card h-100">
-                    <div class="card-body">
-                        <div class="weather-metric monthly-stat">
-                            <i class="bi bi-calendar-range text-primary fs-3"></i>
-                            <div>
-                                <div class="metric-value"><?php echo h($firstYear . '-' . $lastYear); ?></div>
-                                <small data-i18n="period"><?php echo h($text['period']); ?></small>
-                            </div>
+                <div class="card-body">
+                    <div class="weather-metric monthly-stat">
+                        <i class="bi bi-calendar-range text-primary fs-3"></i>
+                        <div>
+                            <div class="metric-value"><?php echo h($firstYear . '-' . $lastYear); ?></div>
+                            <small data-i18n="period"><?php echo h($text['period']); ?></small>
                         </div>
                     </div>
                 </div>
             </div>
             <div class="col-md-4">
-                <div class="weather-card h-100">
-                    <div class="card-body">
-                        <div class="weather-metric monthly-stat">
-                            <i class="bi bi-droplet text-info fs-3"></i>
-                            <div>
-                                <div class="metric-value"><?php echo h(number_format($average, 1, '.', '')); ?>&nbsp;mm</div>
-                                <small data-i18n="averagePerYear"><?php echo h($text['averagePerYear']); ?></small>
-                            </div>
+                <div class="card-body">
+                    <div class="weather-metric monthly-stat">
+                        <i class="bi bi-droplet text-info fs-3"></i>
+                        <div>
+                            <div class="metric-value"><?php echo h(number_format($average, 1, '.', '')); ?>&nbsp;mm</div>
+                            <small data-i18n="averagePerYear"><?php echo h($text['averagePerYear']); ?></small>
                         </div>
                     </div>
                 </div>
             </div>
             <div class="col-md-4">
-                <div class="weather-card h-100">
-                    <div class="card-body">
-                        <div class="weather-metric monthly-stat">
-                            <i class="bi bi-cloud-arrow-down text-success fs-3"></i>
-                            <div>
-                                <div class="metric-value"><?php echo h($wettest['year']); ?></div>
-                                <small>
-                                    <span data-i18n="wettestYear"><?php echo h($text['wettestYear']); ?></span>
-                                    <?php echo h(number_format((float)$wettest['precipitation_mm'], 1, '.', '')); ?>&nbsp;mm
-                                </small>
-                            </div>
+                <div class="card-body">
+                    <div class="weather-metric monthly-stat">
+                        <i class="bi bi-cloud-arrow-down text-success fs-3"></i>
+                        <div>
+                            <div class="metric-value"><?php echo h($wettest['year']); ?></div>
+                            <small>
+                                <span data-i18n="wettestYear"><?php echo h($text['wettestYear']); ?></span>
+                                <?php echo h(number_format((float)$wettest['precipitation_mm'], 1, '.', '')); ?>&nbsp;mm
+                            </small>
                         </div>
                     </div>
                 </div>
