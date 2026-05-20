@@ -486,7 +486,7 @@ if ($initialWeatherJson === false) {
                             <div class="col-md-6">
                                 <div class="weather-metric">
                                     <div class="d-flex justify-content-between align-items-center">
-                                        <span class="metric-label"><span data-i18n="speed">Snelheid</span> <small id="primaryWindScale" class="text-muted"></small></span>
+                                        <span class="metric-label"><span data-i18n="speed">Snelheid</span><span id="primaryWindScale" class="text-muted metric-subtext"></span></span>
                                         <span class="metric-value" id="primaryWind">
                                             <div class="loading-placeholder">-- km/h</div>
                                         </span>

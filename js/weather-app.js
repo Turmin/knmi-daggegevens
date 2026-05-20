@@ -978,7 +978,7 @@ class WeatherApp {
                 <div class="col-md-6">
                     <div class="weather-metric comparison-metric">
                         <div class="d-flex justify-content-between align-items-center">
-                            <span class="metric-label">${this.t('speed')} <small class="text-muted">${this.formatBeaufort(data.wind.beaufort)}</small></span>
+                            <span class="metric-label"><span>${this.t('speed')}</span><span class="text-muted metric-subtext">${this.formatBeaufort(data.wind.beaufort)}</span></span>
                             <span class="metric-value comparison-value">${this.formatWindSpeed(data.wind.speed_avg)}</span>
                         </div>
                         <small class="text-muted">${this.t('difference')}: ${windDiff}</small>
