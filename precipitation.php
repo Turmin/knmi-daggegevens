@@ -129,7 +129,6 @@ try {
         FROM knmi
         WHERE stn = 260
             AND yyyymmdd >= :start_date
-            AND yyyymmdd < MAKEDATE(YEAR(CURDATE()), 1)
         GROUP BY YEAR(yyyymmdd)
         ORDER BY year ASC
     ");
@@ -146,6 +145,7 @@ $lastYear = $rows ? (int)$rows[count($rows) - 1]['year'] : null;
 $wettest = null;
 $driest = null;
 $total = 0.0;
+$currentYear = (int)date('Y');
 
 foreach ($rows as $row) {
     $amount = (float)$row['precipitation_mm'];
@@ -153,7 +153,7 @@ foreach ($rows as $row) {
     if ($wettest === null || $amount > (float)$wettest['precipitation_mm']) {
         $wettest = $row;
     }
-    if ($driest === null || $amount < (float)$driest['precipitation_mm']) {
+    if ((int)$row['year'] !== $currentYear && ($driest === null || $amount < (float)$driest['precipitation_mm'])) {
         $driest = $row;
     }
 }
