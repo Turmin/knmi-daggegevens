@@ -1175,6 +1175,8 @@ class WeatherApp {
 
         const dateLabel = this.formatCalendarDay(stats.month, stats.day);
         const years = stats.temperature?.years || stats.sample_size || 0;
+        const sameDateDetail = this.t('calendarSameDateAverage', { date: dateLabel });
+        const comparedDetail = this.t('calendarComparedToAverage', { date: dateLabel });
         const rank = stats.temperature?.rank_warmest;
         const rankValue = rank && years
             ? this.t('rankOutOf', { rank, total: years })
@@ -1184,17 +1186,17 @@ class WeatherApp {
             : this.t('notEnoughYears');
 
         titleEl.innerHTML = `<i class="bi bi-calendar3-week me-2"></i>${this.escapeHtml(this.t('calendarStatsTitle', { date: dateLabel }))}`;
-        subtitleEl.textContent = this.t('calendarYears', { years });
+        subtitleEl.textContent = this.t('calendarYears', { years, date: dateLabel });
 
         content.innerHTML = `
-            ${this.renderCalendarStatCard('bi-thermometer-sun', 'text-primary', this.formatTemperature(stats.temperature?.average), this.t('calendarAvgTemp'), this.t('calendarSameDateAverage'))}
-            ${this.renderCalendarStatCard('bi-arrow-left-right', 'text-danger', this.formatSignedTemperature(stats.temperature?.delta), this.t('calendarTempDifference'), this.t('calendarComparedToAverage'), this.deltaClass(stats.temperature?.delta))}
+            ${this.renderCalendarStatCard('bi-thermometer-sun', 'text-primary', this.formatTemperature(stats.temperature?.average), this.t('calendarAvgTemp'), sameDateDetail)}
+            ${this.renderCalendarStatCard('bi-arrow-left-right', 'text-danger', this.formatSignedTemperature(stats.temperature?.delta), this.t('calendarTempDifference'), comparedDetail, this.deltaClass(stats.temperature?.delta))}
             ${this.renderCalendarStatCard('bi-list-ol', 'text-success', rankValue, this.t('calendarWarmthRank'), warmerThan)}
-            ${this.renderCalendarRecordCard('bi-arrow-up-circle', 'text-danger', stats.temperature?.warmest, this.t('calendarWarmest'), 'temperature')}
-            ${this.renderCalendarRecordCard('bi-arrow-down-circle', 'text-info', stats.temperature?.coldest, this.t('calendarColdest'), 'temperature')}
-            ${this.renderCalendarStatCard('bi-droplet', 'text-info', this.formatPrecipitation(stats.precipitation?.average), this.t('calendarAvgRain'), this.t('calendarSameDateAverage'))}
-            ${this.renderCalendarRecordCard('bi-cloud-rain-heavy', 'text-primary', stats.precipitation?.wettest, this.t('calendarWettest'), 'precipitation')}
-            ${this.renderCalendarStatCard('bi-sun', 'text-warning', this.formatDuration(stats.sunshine?.average), this.t('calendarAvgSun'), this.t('calendarSameDateAverage'))}
+            ${this.renderCalendarRecordCard('bi-arrow-up-circle', 'text-danger', stats.temperature?.warmest, this.t('calendarWarmest', { date: dateLabel }), 'temperature')}
+            ${this.renderCalendarRecordCard('bi-arrow-down-circle', 'text-info', stats.temperature?.coldest, this.t('calendarColdest', { date: dateLabel }), 'temperature')}
+            ${this.renderCalendarStatCard('bi-droplet', 'text-info', this.formatPrecipitation(stats.precipitation?.average), this.t('calendarAvgRain'), sameDateDetail)}
+            ${this.renderCalendarRecordCard('bi-cloud-rain-heavy', 'text-primary', stats.precipitation?.wettest, this.t('calendarWettest', { date: dateLabel }), 'precipitation')}
+            ${this.renderCalendarStatCard('bi-sun', 'text-warning', this.formatDuration(stats.sunshine?.average), this.t('calendarAvgSun'), sameDateDetail)}
         `;
     }
 
@@ -1219,7 +1221,7 @@ class WeatherApp {
             : '--';
         const detail = record?.year
             ? this.t('calendarRecordYear', { year: record.year })
-            : this.t('calendarSameDateAverage');
+            : this.t('calendarStatsUnavailable');
 
         return this.renderCalendarStatCard(icon, iconClass, value, label, detail);
     }

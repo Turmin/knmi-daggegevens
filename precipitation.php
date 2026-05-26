@@ -53,7 +53,6 @@ $translations = [
         'themeLight' => 'Licht',
         'language' => 'Taal',
         'dataViews' => 'Dataweergaven',
-        'backHome' => 'Terug naar daggegevens',
         'loadError' => 'Neerslaggegevens konden niet worden geladen.',
         'noData' => 'Er zijn geen neerslaggegevens beschikbaar.',
         'overview' => 'Overzicht',
@@ -90,7 +89,6 @@ $translations = [
         'themeLight' => 'Light',
         'language' => 'Language',
         'dataViews' => 'Data views',
-        'backHome' => 'Back to daily data',
         'loadError' => 'Precipitation data could not be loaded.',
         'noData' => 'No precipitation data is available.',
         'overview' => 'Overview',
@@ -227,9 +225,6 @@ $faviconHref = appAssetPath('favicon.svg');
                                     <button type="button" class="btn <?php echo $pageLanguage === 'nl' ? 'btn-light active' : 'btn-outline-light'; ?>" data-language="nl" aria-pressed="<?php echo $pageLanguage === 'nl' ? 'true' : 'false'; ?>">NL</button>
                                     <button type="button" class="btn <?php echo $pageLanguage === 'en' ? 'btn-light active' : 'btn-outline-light'; ?>" data-language="en" aria-pressed="<?php echo $pageLanguage === 'en' ? 'true' : 'false'; ?>">EN</button>
                                 </div>
-                                <a class="btn btn-light btn-sm" href="./" data-i18n-title="backHome" data-i18n-aria-label="backHome" title="<?php echo h($text['backHome']); ?>" aria-label="<?php echo h($text['backHome']); ?>">
-                                    <i class="bi bi-house"></i>
-                                </a>
                             </div>
                         </div>
                     </div>
