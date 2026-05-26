@@ -134,6 +134,49 @@ body {
     justify-content: flex-end;
 }
 
+/* Data View Navigation */
+.insight-navigation {
+    align-items: center;
+    background: var(--surface-soft);
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+    box-shadow: var(--shadow-soft);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    padding: 0.75rem;
+}
+
+.insight-link {
+    align-items: center;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: var(--text-main);
+    display: inline-flex;
+    font-weight: 600;
+    gap: 0.45rem;
+    min-height: 42px;
+    padding: 0.55rem 0.85rem;
+    text-decoration: none;
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.insight-link:hover {
+    background: var(--surface-strong);
+    border-color: var(--primary-blue);
+    color: var(--primary-blue);
+}
+
+.insight-link.active {
+    background: var(--primary-blue);
+    border-color: var(--primary-blue);
+    color: white;
+}
+
+.insight-link.active:hover {
+    color: white;
+}
+
 /* Navigation Styles */
 .date-navigation {
     background: var(--surface-soft);
@@ -767,6 +810,25 @@ a {
 #monthlyStatsContent .metric-value {
     max-width: none;
     text-align: left;
+}
+
+.calendar-stat .metric-detail {
+    display: block;
+    font-size: 0.78rem;
+    line-height: 1.2;
+    margin-top: 0.15rem;
+}
+
+.calendar-stat .metric-positive {
+    color: var(--danger-red);
+}
+
+.calendar-stat .metric-negative {
+    color: var(--accent-teal);
+}
+
+.calendar-stat .metric-neutral {
+    color: var(--primary-blue);
 }
 
 :root[data-theme="dark"] .btn-close {

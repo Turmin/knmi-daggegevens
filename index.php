@@ -328,6 +328,22 @@ if ($initialWeatherJson === false) {
             </div>
         </div>
 
+        <!-- Data Views -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <nav class="insight-navigation" data-i18n-aria-label="dataViews" aria-label="Dataweergaven">
+                    <a href="./" class="insight-link active" aria-current="page">
+                        <i class="bi bi-calendar-check"></i>
+                        <span data-i18n="dailyData">Daggegevens</span>
+                    </a>
+                    <a href="<?php echo h(appAssetPath('precipitation.php')); ?>" class="insight-link">
+                        <i class="bi bi-cloud-rain-heavy"></i>
+                        <span data-i18n="annualPrecipitation">Jaarlijkse neerslag</span>
+                    </a>
+                </nav>
+            </div>
+        </div>
+
         <!-- Date Navigation -->
         <div class="row mb-4">
             <div class="col-12">
@@ -634,6 +650,27 @@ if ($initialWeatherJson === false) {
                     </div>
                     <div class="card-body p-4" id="comparisonContent">
                         <!-- Dynamic comparison content will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Calendar Day Statistics -->
+        <div class="row mb-4" id="calendarStatsRow">
+            <div class="col-12">
+                <div class="weather-card">
+                    <div class="card-header">
+                        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
+                            <h4 class="mb-0" id="calendarStatsTitle">
+                                <i class="bi bi-calendar3-week me-2"></i><span data-i18n="calendarStats">Deze datum door de jaren heen</span>
+                            </h4>
+                            <small class="text-light" id="calendarStatsSubtitle" data-i18n="loading">Laden...</small>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3 metric-card-grid" id="calendarStatsContent">
+                            <div class="col-12 text-muted" data-i18n="loading">Laden...</div>
+                        </div>
                     </div>
                 </div>
             </div>

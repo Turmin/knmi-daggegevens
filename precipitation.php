@@ -52,6 +52,7 @@ $translations = [
         'themeDark' => 'Donker',
         'themeLight' => 'Licht',
         'language' => 'Taal',
+        'dataViews' => 'Dataweergaven',
         'backHome' => 'Terug naar daggegevens',
         'loadError' => 'Neerslaggegevens konden niet worden geladen.',
         'noData' => 'Er zijn geen neerslaggegevens beschikbaar.',
@@ -71,6 +72,7 @@ $translations = [
         'daysWithPrecipitation' => 'Dagen met neerslag',
         'appName' => 'KNMI Daggegevens',
         'dailyData' => 'Daggegevens',
+        'annualPrecipitation' => 'Jaarlijkse neerslag',
         'chartTitle' => 'Jaarlijkse neerslagtotalen',
         'chartDataset' => 'Neerslag',
         'precipitationMm' => 'Neerslag (mm)',
@@ -87,6 +89,7 @@ $translations = [
         'themeDark' => 'Dark',
         'themeLight' => 'Light',
         'language' => 'Language',
+        'dataViews' => 'Data views',
         'backHome' => 'Back to daily data',
         'loadError' => 'Precipitation data could not be loaded.',
         'noData' => 'No precipitation data is available.',
@@ -106,6 +109,7 @@ $translations = [
         'daysWithPrecipitation' => 'Days with precipitation',
         'appName' => 'KNMI Daily Data',
         'dailyData' => 'Daily weather data',
+        'annualPrecipitation' => 'Yearly precipitation',
         'chartTitle' => 'Annual precipitation totals',
         'chartDataset' => 'Precipitation',
         'precipitationMm' => 'Precipitation (mm)',
@@ -230,6 +234,21 @@ $faviconHref = appAssetPath('favicon.svg');
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-12">
+                <nav class="insight-navigation" data-i18n-aria-label="dataViews" aria-label="<?php echo h($text['dataViews']); ?>">
+                    <a href="./" class="insight-link">
+                        <i class="bi bi-calendar-check"></i>
+                        <span data-i18n="dailyData"><?php echo h($text['dailyData']); ?></span>
+                    </a>
+                    <a href="<?php echo h(appAssetPath('precipitation.php')); ?>" class="insight-link active" aria-current="page">
+                        <i class="bi bi-cloud-rain-heavy"></i>
+                        <span data-i18n="annualPrecipitation"><?php echo h($text['annualPrecipitation']); ?></span>
+                    </a>
+                </nav>
             </div>
         </div>
 
