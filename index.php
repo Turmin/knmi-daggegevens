@@ -336,9 +336,9 @@ if ($initialWeatherJson === false) {
                         <i class="bi bi-calendar-check"></i>
                         <span data-i18n="dailyData">Daggegevens</span>
                     </a>
-                    <a href="<?php echo h(appAssetPath('precipitation.php')); ?>" class="insight-link">
-                        <i class="bi bi-cloud-rain-heavy"></i>
-                        <span data-i18n="annualPrecipitation">Jaarlijkse neerslag</span>
+                    <a href="<?php echo h(appAssetPath('yearly.php')); ?>" class="insight-link">
+                        <i class="bi bi-bar-chart-line"></i>
+                        <span data-i18n="yearlyStatistics">Jaarstatistieken</span>
                     </a>
                 </nav>
             </div>
@@ -815,7 +815,6 @@ if ($initialWeatherJson === false) {
                         <span id="lastUpdateText" data-update-time="<?php echo date('c'); ?>">Laatste update: <?php echo date('d-m-Y H:i'); ?></span> •
                         <span id="lastRefreshText"></span>
                         <span id="lastRefreshSeparator" style="display: none;"> • </span>
-                        <a href="<?php echo h(appAssetPath('precipitation.php')); ?>" class="text-decoration-none" data-i18n="annualPrecipitation">Jaarlijkse neerslag</a> •
                         <a href="javascript:void(0)" id="aboutBtn" class="text-decoration-none" data-i18n="aboutSite">Over deze website</a> •
                         <a href="javascript:void(0)" id="helpBtn" class="text-decoration-none" data-i18n="helpShortcuts">Help & Sneltoetsen</a>
                     </p>

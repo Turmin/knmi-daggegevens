@@ -1414,23 +1414,23 @@ a {
     text-align: center;
 }
 
-.precipitation-chart-actions {
+.yearly-chart-actions {
     flex-direction: row !important;
     flex-wrap: nowrap !important;
     width: auto !important;
 }
 
-.precipitation-chart-actions > .btn {
+.yearly-chart-actions > .btn {
     flex: 0 0 auto;
     margin: 0 !important;
 }
 
-.precipitation-chart-container {
+.yearly-chart-container {
     height: 520px;
 }
 
 @media (max-width: 768px) {
-    .precipitation-chart-container {
+    .yearly-chart-container {
         height: 360px;
     }
 }
