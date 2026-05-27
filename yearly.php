@@ -18,6 +18,25 @@ function formatMetricValue($value, $unit = '', $spaceBeforeUnit = true) {
     return $formatted . ($spaceBeforeUnit ? '&nbsp;' : '') . h($unit);
 }
 
+function monthLabel($month, $language) {
+    $monthIndex = (int)$month - 1;
+    $monthNames = [
+        'nl' => ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'],
+        'en' => ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    ];
+
+    return $monthNames[$language][$monthIndex] ?? '';
+}
+
+function formatMonthMetricValue($month, $value, $language, $unit = 'mm') {
+    if ($month === null || $month === '' || $value === null || $value === '') {
+        return '--';
+    }
+
+    return '<span data-month-number="' . h($month) . '">' . h(monthLabel($month, $language)) . '</span> '
+        . formatMetricValue($value, $unit);
+}
+
 function requestIsSecure() {
     $forwardedProto = strtolower(trim(explode(',', (string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''))[0]));
 
@@ -70,70 +89,117 @@ try {
     $db = $database->connect();
     $stmt = $db->prepare("
         SELECT
-            yearly.year,
-            yearly.available_days,
-            rain.precipitation_mm,
-            rain.precipitation_min_month_mm,
-            rain.precipitation_avg_month_mm,
-            rain.precipitation_max_month_mm,
-            rain.precipitation_days,
-            yearly.temp_min_c,
-            yearly.temp_avg_c,
-            yearly.temp_max_c,
-            yearly.sunshine_hours
+            YEAR(yyyymmdd) AS year,
+            COUNT(*) AS available_days,
+            ROUND(MIN(tn_num) * 0.1, 1) AS temp_min_c,
+            ROUND(AVG(tg_num) * 0.1, 1) AS temp_avg_c,
+            ROUND(MAX(tx_num) * 0.1, 1) AS temp_max_c,
+            ROUND(SUM(CASE WHEN sq_num < 0 THEN 0 ELSE sq_num END) * 0.1, 1) AS sunshine_hours
         FROM (
             SELECT
-                YEAR(yyyymmdd) AS year,
-                COUNT(*) AS available_days,
-                ROUND(MIN(tn_num) * 0.1, 1) AS temp_min_c,
-                ROUND(AVG(tg_num) * 0.1, 1) AS temp_avg_c,
-                ROUND(MAX(tx_num) * 0.1, 1) AS temp_max_c,
-                ROUND(SUM(CASE WHEN sq_num < 0 THEN 0 ELSE sq_num END) * 0.1, 1) AS sunshine_hours
-            FROM (
-                SELECT
-                    yyyymmdd,
-                    CAST(NULLIF(TRIM(tn), '') AS SIGNED) AS tn_num,
-                    CAST(NULLIF(TRIM(tg), '') AS SIGNED) AS tg_num,
-                    CAST(NULLIF(TRIM(tx), '') AS SIGNED) AS tx_num,
-                    CAST(NULLIF(TRIM(sq), '') AS SIGNED) AS sq_num
-                FROM knmi
-                WHERE stn = 260
-                    AND yyyymmdd >= :start_date
-            ) AS daily
-            GROUP BY YEAR(yyyymmdd)
-        ) AS yearly
-        LEFT JOIN (
-            SELECT
-                monthly.year,
-                ROUND(SUM(monthly.precipitation_tenth) * 0.1, 1) AS precipitation_mm,
-                ROUND(MIN(monthly.precipitation_tenth) * 0.1, 1) AS precipitation_min_month_mm,
-                ROUND(AVG(monthly.precipitation_tenth) * 0.1, 1) AS precipitation_avg_month_mm,
-                ROUND(MAX(monthly.precipitation_tenth) * 0.1, 1) AS precipitation_max_month_mm,
-                SUM(monthly.precipitation_days) AS precipitation_days
-            FROM (
-                SELECT
-                    YEAR(yyyymmdd) AS year,
-                    MONTH(yyyymmdd) AS month,
-                    SUM(CASE WHEN rh_num < 0 THEN 1 ELSE rh_num END) AS precipitation_tenth,
-                    SUM(CASE WHEN rh_num != 0 THEN 1 ELSE 0 END) AS precipitation_days
-                FROM (
-                    SELECT
-                        yyyymmdd,
-                        CAST(NULLIF(TRIM(rh), '') AS SIGNED) AS rh_num
-                    FROM knmi
-                    WHERE stn = 260
-                        AND yyyymmdd >= :precipitation_start_date
-                ) AS rain_daily
-                GROUP BY YEAR(yyyymmdd), MONTH(yyyymmdd)
-            ) AS monthly
-            GROUP BY monthly.year
-        ) AS rain ON rain.year = yearly.year
-        ORDER BY yearly.year ASC
+                yyyymmdd,
+                CAST(NULLIF(TRIM(tn), '') AS SIGNED) AS tn_num,
+                CAST(NULLIF(TRIM(tg), '') AS SIGNED) AS tg_num,
+                CAST(NULLIF(TRIM(tx), '') AS SIGNED) AS tx_num,
+                CAST(NULLIF(TRIM(sq), '') AS SIGNED) AS sq_num
+            FROM knmi
+            WHERE stn = 260
+                AND yyyymmdd >= :start_date
+        ) AS daily
+        GROUP BY YEAR(yyyymmdd)
+        ORDER BY year ASC
     ");
     $stmt->bindValue(':start_date', $yearlyStartDate, PDO::PARAM_STR);
-    $stmt->bindValue(':precipitation_start_date', $precipitationStartDate, PDO::PARAM_STR);
     $stmt->execute();
     $rows = $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
+
+    $rainMonthStmt = $db->prepare("
+        SELECT
+            YEAR(yyyymmdd) AS year,
+            MONTH(yyyymmdd) AS month,
+            SUM(CASE WHEN rh_num < 0 THEN 1 ELSE rh_num END) AS precipitation_tenth,
+            SUM(CASE WHEN rh_num != 0 THEN 1 ELSE 0 END) AS precipitation_days
+        FROM (
+            SELECT
+                yyyymmdd,
+                CAST(NULLIF(TRIM(rh), '') AS SIGNED) AS rh_num
+            FROM knmi
+            WHERE stn = 260
+                AND yyyymmdd >= :precipitation_start_date
+        ) AS rain_daily
+        GROUP BY YEAR(yyyymmdd), MONTH(yyyymmdd)
+        ORDER BY year ASC, month ASC
+    ");
+    $rainMonthStmt->bindValue(':precipitation_start_date', $precipitationStartDate, PDO::PARAM_STR);
+    $rainMonthStmt->execute();
+    $rainMonthRows = $rainMonthStmt ? $rainMonthStmt->fetchAll(PDO::FETCH_ASSOC) : [];
+    $rainMonthsByYear = [];
+
+    foreach ($rainMonthRows as $rainMonthRow) {
+        $rainMonthsByYear[(int)$rainMonthRow['year']][] = [
+            'month' => (int)$rainMonthRow['month'],
+            'precipitation_tenth' => (float)$rainMonthRow['precipitation_tenth'],
+            'precipitation_days' => (int)$rainMonthRow['precipitation_days']
+        ];
+    }
+
+    foreach ($rows as &$row) {
+        $row['precipitation_mm'] = null;
+        $row['precipitation_min_month'] = null;
+        $row['precipitation_min_month_mm'] = null;
+        $row['precipitation_avg_month'] = null;
+        $row['precipitation_avg_month_mm'] = null;
+        $row['precipitation_max_month'] = null;
+        $row['precipitation_max_month_mm'] = null;
+        $row['precipitation_days'] = null;
+
+        $rainMonths = $rainMonthsByYear[(int)$row['year']] ?? [];
+        if (!$rainMonths) {
+            continue;
+        }
+
+        $totalTenth = 0.0;
+        $precipitationDays = 0;
+        $minMonth = null;
+        $maxMonth = null;
+
+        foreach ($rainMonths as $rainMonth) {
+            $totalTenth += $rainMonth['precipitation_tenth'];
+            $precipitationDays += $rainMonth['precipitation_days'];
+
+            if ($minMonth === null || $rainMonth['precipitation_tenth'] < $minMonth['precipitation_tenth']) {
+                $minMonth = $rainMonth;
+            }
+
+            if ($maxMonth === null || $rainMonth['precipitation_tenth'] > $maxMonth['precipitation_tenth']) {
+                $maxMonth = $rainMonth;
+            }
+        }
+
+        $averageTenth = $totalTenth / count($rainMonths);
+        $averageMonth = null;
+
+        foreach ($rainMonths as $rainMonth) {
+            $distance = abs($rainMonth['precipitation_tenth'] - $averageTenth);
+            $currentDistance = $averageMonth === null
+                ? null
+                : abs($averageMonth['precipitation_tenth'] - $averageTenth);
+
+            if ($averageMonth === null || $distance < $currentDistance) {
+                $averageMonth = $rainMonth;
+            }
+        }
+
+        $row['precipitation_mm'] = round($totalTenth * 0.1, 1);
+        $row['precipitation_min_month'] = $minMonth['month'];
+        $row['precipitation_min_month_mm'] = round($minMonth['precipitation_tenth'] * 0.1, 1);
+        $row['precipitation_avg_month'] = $averageMonth['month'];
+        $row['precipitation_avg_month_mm'] = round($averageMonth['precipitation_tenth'] * 0.1, 1);
+        $row['precipitation_max_month'] = $maxMonth['month'];
+        $row['precipitation_max_month_mm'] = round($maxMonth['precipitation_tenth'] * 0.1, 1);
+        $row['precipitation_days'] = $precipitationDays;
+    }
+    unset($row);
 } catch (Throwable $e) {
     error_log('Yearly statistics page error: ' . $e->getMessage());
     $error = true;
@@ -442,9 +508,9 @@ $faviconHref = appAssetPath('favicon.svg');
                                     <tr>
                                         <td><?php echo h($row['year']); ?></td>
                                         <td><?php echo formatMetricValue($row['precipitation_mm'], 'mm'); ?></td>
-                                        <td><?php echo formatMetricValue($row['precipitation_min_month_mm'], 'mm'); ?></td>
-                                        <td><?php echo formatMetricValue($row['precipitation_avg_month_mm'], 'mm'); ?></td>
-                                        <td><?php echo formatMetricValue($row['precipitation_max_month_mm'], 'mm'); ?></td>
+                                        <td><?php echo formatMonthMetricValue($row['precipitation_min_month'], $row['precipitation_min_month_mm'], $pageLanguage); ?></td>
+                                        <td><?php echo formatMonthMetricValue($row['precipitation_avg_month'], $row['precipitation_avg_month_mm'], $pageLanguage); ?></td>
+                                        <td><?php echo formatMonthMetricValue($row['precipitation_max_month'], $row['precipitation_max_month_mm'], $pageLanguage); ?></td>
                                         <td><?php echo $row['precipitation_days'] === null ? '--' : h($row['precipitation_days']); ?></td>
                                         <td><?php echo formatMetricValue($row['temp_min_c'], '°C', false); ?></td>
                                         <td><?php echo formatMetricValue($row['temp_avg_c'], '°C', false); ?></td>
@@ -491,9 +557,9 @@ $faviconHref = appAssetPath('favicon.svg');
                 unitKey: 'yearlyUnitMm',
                 beginAtZero: true,
                 datasets: [
-                    { labelKey: 'yearlyChartDatasetRainMinMonth', dataKey: 'precipitation_min_month_mm' },
-                    { labelKey: 'yearlyChartDatasetRainAvgMonth', dataKey: 'precipitation_avg_month_mm' },
-                    { labelKey: 'yearlyChartDatasetRainMaxMonth', dataKey: 'precipitation_max_month_mm' }
+                    { labelKey: 'yearlyChartDatasetRainMinMonth', dataKey: 'precipitation_min_month_mm', monthKey: 'precipitation_min_month' },
+                    { labelKey: 'yearlyChartDatasetRainAvgMonth', dataKey: 'precipitation_avg_month_mm', monthKey: 'precipitation_avg_month' },
+                    { labelKey: 'yearlyChartDatasetRainMaxMonth', dataKey: 'precipitation_max_month_mm', monthKey: 'precipitation_max_month' }
                 ]
             },
             temperature: {
@@ -520,6 +586,19 @@ $faviconHref = appAssetPath('favicon.svg');
 
         function t(key) {
             return window.AppI18n?.[currentLanguage]?.[key] || window.AppI18n?.nl?.[key] || key;
+        }
+
+        function monthName(monthNumber) {
+            const monthIndex = Number(monthNumber) - 1;
+            return window.AppI18n?.[currentLanguage]?.months?.[monthIndex]
+                || window.AppI18n?.nl?.months?.[monthIndex]
+                || '';
+        }
+
+        function updateMonthLabels() {
+            document.querySelectorAll('[data-month-number]').forEach(element => {
+                element.textContent = monthName(element.dataset.monthNumber);
+            });
         }
 
         function updateLanguageControls() {
@@ -558,6 +637,7 @@ $faviconHref = appAssetPath('favicon.svg');
             });
 
             updateLanguageControls();
+            updateMonthLabels();
             updateThemeToggle();
             updateChartLanguage();
         }
@@ -696,7 +776,15 @@ $faviconHref = appAssetPath('favicon.svg');
                             },
                             tooltip: {
                                 callbacks: {
-                                    label: context => `${context.dataset.label}: ${context.parsed.y} ${t(metricConfig[activeMetric].unitKey)}`
+                                    label: context => {
+                                        const config = metricConfig[activeMetric];
+                                        const definition = config.datasets[context.datasetIndex];
+                                        const row = yearlyStats[context.dataIndex] || {};
+                                        const month = definition.monthKey ? monthName(row[definition.monthKey]) : '';
+                                        const suffix = month ? ` (${month})` : '';
+
+                                        return `${context.dataset.label}: ${context.parsed.y} ${t(config.unitKey)}${suffix}`;
+                                    }
                                 }
                             }
                         },
