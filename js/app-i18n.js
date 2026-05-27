@@ -229,6 +229,7 @@ window.AppI18n = {
             11: 'Zeer zware storm',
             12: 'Orkaan'
         },
+        shortMonths: ['jan', 'feb', 'maa', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'],
         months: ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december']
     },
     en: {
@@ -460,6 +461,7 @@ window.AppI18n = {
             11: 'Violent storm',
             12: 'Hurricane force'
         },
+        shortMonths: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
         months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
     }
 };

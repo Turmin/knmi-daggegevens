@@ -21,7 +21,7 @@ function formatMetricValue($value, $unit = '', $spaceBeforeUnit = true) {
 function monthLabel($month, $language) {
     $monthIndex = (int)$month - 1;
     $monthNames = [
-        'nl' => ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'],
+        'nl' => ['jan', 'feb', 'maa', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'],
         'en' => ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
     ];
 
@@ -33,8 +33,12 @@ function formatMonthMetricValue($month, $value, $language, $unit = 'mm') {
         return '--';
     }
 
-    return '<span data-month-number="' . h($month) . '">' . h(monthLabel($month, $language)) . '</span> '
-        . formatMetricValue($value, $unit);
+    return formatMetricValue($value, $unit)
+        . ' <span data-month-format="short" data-month-number="' . h($month) . '">(' . h(monthLabel($month, $language)) . ')</span>';
+}
+
+function sortAttribute($value) {
+    return ' data-sort-value="' . h($value === null || $value === '' ? '' : $value) . '"';
 }
 
 function requestIsSecure() {
@@ -488,34 +492,34 @@ $faviconHref = appAssetPath('favicon.svg');
                     </div>
                     <div class="card-body">
                         <div class="table-responsive">
-                            <table class="table table-sm align-middle">
+                            <table class="table table-sm align-middle sortable-table" id="yearlyStatsTable">
                                 <thead>
                                     <tr>
-                                        <th data-i18n="year">Jaar</th>
-                                        <th data-i18n="rainTotal">Neerslag totaal</th>
-                                        <th data-i18n="rainMinMonth">Droogste maand</th>
-                                        <th data-i18n="rainAvgMonth">Gem. maand</th>
-                                        <th data-i18n="rainMaxMonth">Natste maand</th>
-                                        <th data-i18n="daysWithPrecipitation">Dagen met neerslag</th>
-                                        <th data-i18n="tempMin">Laagste min.</th>
-                                        <th data-i18n="tempAvg">Gem. temp.</th>
-                                        <th data-i18n="tempMax">Hoogste max.</th>
-                                        <th data-i18n="sunHours">Zonuren</th>
+                                        <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="0" data-i18n="year">Jaar</button></th>
+                                        <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="1" data-i18n="rainTotal">Neerslag totaal</button></th>
+                                        <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="2" data-i18n="rainMinMonth">Droogste maand</button></th>
+                                        <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="3" data-i18n="rainAvgMonth">Gem. maand</button></th>
+                                        <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="4" data-i18n="rainMaxMonth">Natste maand</button></th>
+                                        <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="5" data-i18n="daysWithPrecipitation">Dagen met neerslag</button></th>
+                                        <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="6" data-i18n="tempMin">Laagste min.</button></th>
+                                        <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="7" data-i18n="tempAvg">Gem. temp.</button></th>
+                                        <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="8" data-i18n="tempMax">Hoogste max.</button></th>
+                                        <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="9" data-i18n="sunHours">Zonuren</button></th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <?php foreach (array_reverse($rows) as $row): ?>
                                     <tr>
-                                        <td><?php echo h($row['year']); ?></td>
-                                        <td><?php echo formatMetricValue($row['precipitation_mm'], 'mm'); ?></td>
-                                        <td><?php echo formatMonthMetricValue($row['precipitation_min_month'], $row['precipitation_min_month_mm'], $pageLanguage); ?></td>
-                                        <td><?php echo formatMonthMetricValue($row['precipitation_avg_month'], $row['precipitation_avg_month_mm'], $pageLanguage); ?></td>
-                                        <td><?php echo formatMonthMetricValue($row['precipitation_max_month'], $row['precipitation_max_month_mm'], $pageLanguage); ?></td>
-                                        <td><?php echo $row['precipitation_days'] === null ? '--' : h($row['precipitation_days']); ?></td>
-                                        <td><?php echo formatMetricValue($row['temp_min_c'], '°C', false); ?></td>
-                                        <td><?php echo formatMetricValue($row['temp_avg_c'], '°C', false); ?></td>
-                                        <td><?php echo formatMetricValue($row['temp_max_c'], '°C', false); ?></td>
-                                        <td><?php echo formatMetricValue($row['sunshine_hours'], 'h'); ?></td>
+                                        <td<?php echo sortAttribute($row['year']); ?>><?php echo h($row['year']); ?></td>
+                                        <td<?php echo sortAttribute($row['precipitation_mm']); ?>><?php echo formatMetricValue($row['precipitation_mm'], 'mm'); ?></td>
+                                        <td<?php echo sortAttribute($row['precipitation_min_month_mm']); ?>><?php echo formatMonthMetricValue($row['precipitation_min_month'], $row['precipitation_min_month_mm'], $pageLanguage); ?></td>
+                                        <td<?php echo sortAttribute($row['precipitation_avg_month_mm']); ?>><?php echo formatMonthMetricValue($row['precipitation_avg_month'], $row['precipitation_avg_month_mm'], $pageLanguage); ?></td>
+                                        <td<?php echo sortAttribute($row['precipitation_max_month_mm']); ?>><?php echo formatMonthMetricValue($row['precipitation_max_month'], $row['precipitation_max_month_mm'], $pageLanguage); ?></td>
+                                        <td<?php echo sortAttribute($row['precipitation_days']); ?>><?php echo $row['precipitation_days'] === null ? '--' : h($row['precipitation_days']); ?></td>
+                                        <td<?php echo sortAttribute($row['temp_min_c']); ?>><?php echo formatMetricValue($row['temp_min_c'], '°C', false); ?></td>
+                                        <td<?php echo sortAttribute($row['temp_avg_c']); ?>><?php echo formatMetricValue($row['temp_avg_c'], '°C', false); ?></td>
+                                        <td<?php echo sortAttribute($row['temp_max_c']); ?>><?php echo formatMetricValue($row['temp_max_c'], '°C', false); ?></td>
+                                        <td<?php echo sortAttribute($row['sunshine_hours']); ?>><?php echo formatMetricValue($row['sunshine_hours'], 'h'); ?></td>
                                     </tr>
                                     <?php endforeach; ?>
                                 </tbody>
@@ -595,9 +599,67 @@ $faviconHref = appAssetPath('favicon.svg');
                 || '';
         }
 
+        function shortMonthName(monthNumber) {
+            const monthIndex = Number(monthNumber) - 1;
+            return window.AppI18n?.[currentLanguage]?.shortMonths?.[monthIndex]
+                || window.AppI18n?.nl?.shortMonths?.[monthIndex]
+                || monthName(monthNumber).slice(0, 3);
+        }
+
         function updateMonthLabels() {
             document.querySelectorAll('[data-month-number]').forEach(element => {
-                element.textContent = monthName(element.dataset.monthNumber);
+                const label = element.dataset.monthFormat === 'short'
+                    ? shortMonthName(element.dataset.monthNumber)
+                    : monthName(element.dataset.monthNumber);
+                element.textContent = element.dataset.monthFormat === 'short' ? `(${label})` : label;
+            });
+        }
+
+        function sortTable(table, columnIndex, direction) {
+            const tbody = table.querySelector('tbody');
+            const collator = new Intl.Collator(currentLanguage, { numeric: true, sensitivity: 'base' });
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+
+            rows.sort((rowA, rowB) => {
+                const cellA = rowA.children[columnIndex];
+                const cellB = rowB.children[columnIndex];
+                const valueA = cellA?.dataset.sortValue ?? cellA?.textContent.trim() ?? '';
+                const valueB = cellB?.dataset.sortValue ?? cellB?.textContent.trim() ?? '';
+                const missingA = valueA === '';
+                const missingB = valueB === '';
+
+                if (missingA && missingB) return 0;
+                if (missingA) return 1;
+                if (missingB) return -1;
+
+                const numberA = Number(valueA);
+                const numberB = Number(valueB);
+                const result = Number.isNaN(numberA) || Number.isNaN(numberB)
+                    ? collator.compare(valueA, valueB)
+                    : numberA - numberB;
+
+                return direction === 'ascending' ? result : -result;
+            });
+
+            rows.forEach(row => tbody.appendChild(row));
+        }
+
+        function initSortableTable() {
+            const table = document.getElementById('yearlyStatsTable');
+            if (!table) return;
+
+            const headers = Array.from(table.querySelectorAll('thead th'));
+            table.querySelectorAll('[data-sort-column]').forEach(button => {
+                button.addEventListener('click', () => {
+                    const header = button.closest('th');
+                    const nextDirection = header.getAttribute('aria-sort') === 'ascending'
+                        ? 'descending'
+                        : 'ascending';
+
+                    headers.forEach(item => item.setAttribute('aria-sort', 'none'));
+                    header.setAttribute('aria-sort', nextDirection);
+                    sortTable(table, Number(button.dataset.sortColumn), nextDirection);
+                });
             });
         }
 
@@ -853,6 +915,8 @@ $faviconHref = appAssetPath('favicon.svg');
                     applyLanguage(button.dataset.language);
                 });
             });
+
+            initSortableTable();
 
             const themeToggle = document.getElementById('themeToggle');
             if (themeToggle) {
