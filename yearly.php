@@ -57,10 +57,11 @@ $pageTitle = $pageLanguage === "en"
     ? "Yearly statistics - KNMI Daily Data"
     : "Jaarstatistieken - KNMI Daggegevens";
 $pageDescription = $pageLanguage === "en"
-    ? "Interactive yearly precipitation, temperature, sunshine, and wind statistics for KNMI daily data from De Bilt."
-    : "Interactieve grafiek met jaarlijkse neerslag-, temperatuur-, zon- en windstatistieken voor KNMI daggegevens van De Bilt.";
+    ? "Interactive yearly precipitation, temperature, and sunshine statistics for KNMI daily data from De Bilt."
+    : "Interactieve grafiek met jaarlijkse neerslag-, temperatuur- en zonstatistieken voor KNMI daggegevens van De Bilt.";
 
-$yearlyStartDate = '1906-01-01';
+$yearlyStartDate = '1901-01-01';
+$precipitationStartDate = '1906-01-01';
 $rows = [];
 $error = null;
 
@@ -69,36 +70,68 @@ try {
     $db = $database->connect();
     $stmt = $db->prepare("
         SELECT
-            YEAR(yyyymmdd) AS year,
-            COUNT(*) AS available_days,
-            ROUND(SUM(CASE WHEN rh_num < 0 THEN 1 ELSE rh_num END) * 0.1, 1) AS precipitation_mm,
-            SUM(CASE WHEN rh_num != 0 THEN 1 ELSE 0 END) AS precipitation_days,
-            ROUND(MIN(tn_num) * 0.1, 1) AS temp_min_c,
-            ROUND(AVG(tg_num) * 0.1, 1) AS temp_avg_c,
-            ROUND(MAX(tx_num) * 0.1, 1) AS temp_max_c,
-            ROUND(SUM(CASE WHEN sq_num < 0 THEN 0 ELSE sq_num END) * 0.1, 1) AS sunshine_hours,
-            ROUND(AVG(fg_num) * 0.1 * 3.6, 1) AS wind_avg_kmh,
-            ROUND(MAX(fhx_num) * 0.1 * 3.6, 1) AS wind_max_kmh,
-            ROUND(MAX(fxx_num) * 0.1 * 3.6, 1) AS wind_gust_max_kmh
+            yearly.year,
+            yearly.available_days,
+            rain.precipitation_mm,
+            rain.precipitation_min_month_mm,
+            rain.precipitation_avg_month_mm,
+            rain.precipitation_max_month_mm,
+            rain.precipitation_days,
+            yearly.temp_min_c,
+            yearly.temp_avg_c,
+            yearly.temp_max_c,
+            yearly.sunshine_hours
         FROM (
             SELECT
-                yyyymmdd,
-                CAST(NULLIF(TRIM(rh), '') AS SIGNED) AS rh_num,
-                CAST(NULLIF(TRIM(tn), '') AS SIGNED) AS tn_num,
-                CAST(NULLIF(TRIM(tg), '') AS SIGNED) AS tg_num,
-                CAST(NULLIF(TRIM(tx), '') AS SIGNED) AS tx_num,
-                CAST(NULLIF(TRIM(sq), '') AS SIGNED) AS sq_num,
-                CAST(NULLIF(TRIM(fg), '') AS SIGNED) AS fg_num,
-                CAST(NULLIF(TRIM(fhx), '') AS SIGNED) AS fhx_num,
-                CAST(NULLIF(TRIM(fxx), '') AS SIGNED) AS fxx_num
-            FROM knmi
-            WHERE stn = 260
-                AND yyyymmdd >= :start_date
-        ) AS daily
-        GROUP BY YEAR(yyyymmdd)
-        ORDER BY year ASC
+                YEAR(yyyymmdd) AS year,
+                COUNT(*) AS available_days,
+                ROUND(MIN(tn_num) * 0.1, 1) AS temp_min_c,
+                ROUND(AVG(tg_num) * 0.1, 1) AS temp_avg_c,
+                ROUND(MAX(tx_num) * 0.1, 1) AS temp_max_c,
+                ROUND(SUM(CASE WHEN sq_num < 0 THEN 0 ELSE sq_num END) * 0.1, 1) AS sunshine_hours
+            FROM (
+                SELECT
+                    yyyymmdd,
+                    CAST(NULLIF(TRIM(tn), '') AS SIGNED) AS tn_num,
+                    CAST(NULLIF(TRIM(tg), '') AS SIGNED) AS tg_num,
+                    CAST(NULLIF(TRIM(tx), '') AS SIGNED) AS tx_num,
+                    CAST(NULLIF(TRIM(sq), '') AS SIGNED) AS sq_num
+                FROM knmi
+                WHERE stn = 260
+                    AND yyyymmdd >= :start_date
+            ) AS daily
+            GROUP BY YEAR(yyyymmdd)
+        ) AS yearly
+        LEFT JOIN (
+            SELECT
+                monthly.year,
+                ROUND(SUM(monthly.precipitation_tenth) * 0.1, 1) AS precipitation_mm,
+                ROUND(MIN(monthly.precipitation_tenth) * 0.1, 1) AS precipitation_min_month_mm,
+                ROUND(AVG(monthly.precipitation_tenth) * 0.1, 1) AS precipitation_avg_month_mm,
+                ROUND(MAX(monthly.precipitation_tenth) * 0.1, 1) AS precipitation_max_month_mm,
+                SUM(monthly.precipitation_days) AS precipitation_days
+            FROM (
+                SELECT
+                    YEAR(yyyymmdd) AS year,
+                    MONTH(yyyymmdd) AS month,
+                    SUM(CASE WHEN rh_num < 0 THEN 1 ELSE rh_num END) AS precipitation_tenth,
+                    SUM(CASE WHEN rh_num != 0 THEN 1 ELSE 0 END) AS precipitation_days
+                FROM (
+                    SELECT
+                        yyyymmdd,
+                        CAST(NULLIF(TRIM(rh), '') AS SIGNED) AS rh_num
+                    FROM knmi
+                    WHERE stn = 260
+                        AND yyyymmdd >= :precipitation_start_date
+                ) AS rain_daily
+                GROUP BY YEAR(yyyymmdd), MONTH(yyyymmdd)
+            ) AS monthly
+            GROUP BY monthly.year
+        ) AS rain ON rain.year = yearly.year
+        ORDER BY yearly.year ASC
     ");
     $stmt->bindValue(':start_date', $yearlyStartDate, PDO::PARAM_STR);
+    $stmt->bindValue(':precipitation_start_date', $precipitationStartDate, PDO::PARAM_STR);
     $stmt->execute();
     $rows = $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
 } catch (Throwable $e) {
@@ -108,6 +141,7 @@ try {
 
 $firstYear = $rows ? (int)$rows[0]['year'] : null;
 $lastYear = $rows ? (int)$rows[count($rows) - 1]['year'] : null;
+$firstRainYear = null;
 $wettest = null;
 $driest = null;
 $warmest = null;
@@ -117,14 +151,21 @@ $currentYear = (int)date('Y');
 $completeRows = [];
 
 foreach ($rows as $row) {
+    if ($firstRainYear === null && $row['precipitation_mm'] !== null && $row['precipitation_mm'] !== '') {
+        $firstRainYear = (int)$row['year'];
+    }
+
     if ((int)$row['year'] !== $currentYear) {
         $completeRows[] = $row;
     }
 }
 
 $summaryRows = $completeRows ?: $rows;
+$rainSummaryRows = array_values(array_filter($summaryRows, static function($row) {
+    return $row['precipitation_mm'] !== null && $row['precipitation_mm'] !== '';
+}));
 
-foreach ($summaryRows as $row) {
+foreach ($rainSummaryRows as $row) {
     $amount = (float)$row['precipitation_mm'];
     $total += $amount;
     if ($wettest === null || $amount > (float)$wettest['precipitation_mm']) {
@@ -133,15 +174,26 @@ foreach ($summaryRows as $row) {
     if ($driest === null || $amount < (float)$driest['precipitation_mm']) {
         $driest = $row;
     }
-    if ($warmest === null || (float)$row['temp_avg_c'] > (float)$warmest['temp_avg_c']) {
+}
+
+foreach ($summaryRows as $row) {
+    if (
+        $row['temp_avg_c'] !== null
+        && $row['temp_avg_c'] !== ''
+        && ($warmest === null || (float)$row['temp_avg_c'] > (float)$warmest['temp_avg_c'])
+    ) {
         $warmest = $row;
     }
-    if ($sunniest === null || (float)$row['sunshine_hours'] > (float)$sunniest['sunshine_hours']) {
+    if (
+        $row['sunshine_hours'] !== null
+        && $row['sunshine_hours'] !== ''
+        && ($sunniest === null || (float)$row['sunshine_hours'] > (float)$sunniest['sunshine_hours'])
+    ) {
         $sunniest = $row;
     }
 }
 
-$average = $summaryRows ? round($total / count($summaryRows), 1) : null;
+$average = $rainSummaryRows ? round($total / count($rainSummaryRows), 1) : null;
 $downloadFilename = $firstYear && $lastYear
     ? 'yearly-statistics-' . $firstYear . '-' . $lastYear . '.png'
     : 'yearly-statistics-chart.png';
@@ -193,6 +245,12 @@ $faviconHref = appAssetPath('favicon.svg');
                                     <?php echo h($firstYear); ?>
                                     <span data-i18n="to">t/m</span>
                                     <?php echo h($lastYear); ?>
+                                    <?php if ($firstRainYear && $firstRainYear > $firstYear): ?>
+                                    <span class="d-block">
+                                        <span data-i18n="precipitationFrom">Neerslag vanaf:</span>
+                                        <?php echo h($firstRainYear); ?>
+                                    </span>
+                                    <?php endif; ?>
                                 </small>
                                 <?php endif; ?>
                             </div>
@@ -263,10 +321,10 @@ $faviconHref = appAssetPath('favicon.svg');
                                 <div class="weather-metric monthly-stat">
                                     <i class="bi bi-cloud-arrow-down text-success fs-3"></i>
                                     <div>
-                                        <div class="metric-value"><?php echo h($wettest['year']); ?></div>
+                                        <div class="metric-value"><?php echo $wettest ? h($wettest['year']) : '--'; ?></div>
                                         <small>
                                             <span data-i18n="wettestYear">Natste jaar:</span>
-                                            <?php echo formatMetricValue($wettest['precipitation_mm'], 'mm'); ?>
+                                            <?php echo formatMetricValue($wettest['precipitation_mm'] ?? null, 'mm'); ?>
                                         </small>
                                     </div>
                                 </div>
@@ -275,10 +333,10 @@ $faviconHref = appAssetPath('favicon.svg');
                                 <div class="weather-metric monthly-stat">
                                     <i class="bi bi-sun text-warning fs-3"></i>
                                     <div>
-                                        <div class="metric-value"><?php echo h($driest['year']); ?></div>
+                                        <div class="metric-value"><?php echo $driest ? h($driest['year']) : '--'; ?></div>
                                         <small>
                                             <span data-i18n="driestYear">Droogste jaar:</span>
-                                            <?php echo formatMetricValue($driest['precipitation_mm'], 'mm'); ?>
+                                            <?php echo formatMetricValue($driest['precipitation_mm'] ?? null, 'mm'); ?>
                                         </small>
                                     </div>
                                 </div>
@@ -287,10 +345,10 @@ $faviconHref = appAssetPath('favicon.svg');
                                 <div class="weather-metric monthly-stat">
                                     <i class="bi bi-thermometer-sun text-danger fs-3"></i>
                                     <div>
-                                        <div class="metric-value"><?php echo h($warmest['year']); ?></div>
+                                        <div class="metric-value"><?php echo $warmest ? h($warmest['year']) : '--'; ?></div>
                                         <small>
                                             <span data-i18n="warmestYear">Warmste jaar:</span>
-                                            <?php echo formatMetricValue($warmest['temp_avg_c'], '°C', false); ?>
+                                            <?php echo formatMetricValue($warmest['temp_avg_c'] ?? null, '°C', false); ?>
                                         </small>
                                     </div>
                                 </div>
@@ -299,10 +357,10 @@ $faviconHref = appAssetPath('favicon.svg');
                                 <div class="weather-metric monthly-stat">
                                     <i class="bi bi-brightness-high text-warning fs-3"></i>
                                     <div>
-                                        <div class="metric-value"><?php echo h($sunniest['year']); ?></div>
+                                        <div class="metric-value"><?php echo $sunniest ? h($sunniest['year']) : '--'; ?></div>
                                         <small>
                                             <span data-i18n="sunniestYear">Zonnigste jaar:</span>
-                                            <?php echo formatMetricValue($sunniest['sunshine_hours'], 'h'); ?>
+                                            <?php echo formatMetricValue($sunniest['sunshine_hours'] ?? null, 'h'); ?>
                                         </small>
                                     </div>
                                 </div>
@@ -332,15 +390,12 @@ $faviconHref = appAssetPath('favicon.svg');
                                     <button type="button" class="btn btn-outline-light" data-metric-type="sunshine" data-i18n-title="sunshine" data-i18n-aria-label="sunshine" title="Zon" aria-label="Zon">
                                         <i class="bi bi-sun"></i>
                                     </button>
-                                    <button type="button" class="btn btn-outline-light" data-metric-type="wind" data-i18n-title="wind" data-i18n-aria-label="wind" title="Wind" aria-label="Wind">
-                                        <i class="bi bi-wind"></i>
-                                    </button>
                                 </div>
                                 <div class="btn-group btn-group-sm yearly-chart-actions" role="group" data-i18n-aria-label="chartType" aria-label="Grafiektype">
-                                    <button type="button" class="btn btn-outline-light active" data-chart-type="bar" data-i18n-title="barChart" data-i18n-aria-label="barChart" title="Staafdiagram" aria-label="Staafdiagram">
+                                    <button type="button" class="btn btn-outline-light" data-chart-type="bar" data-i18n-title="barChart" data-i18n-aria-label="barChart" title="Staafdiagram" aria-label="Staafdiagram">
                                         <i class="bi bi-bar-chart"></i>
                                     </button>
-                                    <button type="button" class="btn btn-outline-light" data-chart-type="line" data-i18n-title="lineChart" data-i18n-aria-label="lineChart" title="Lijndiagram" aria-label="Lijndiagram">
+                                    <button type="button" class="btn btn-outline-light active" data-chart-type="line" data-i18n-title="lineChart" data-i18n-aria-label="lineChart" title="Lijndiagram" aria-label="Lijndiagram">
                                         <i class="bi bi-activity"></i>
                                     </button>
                                     <button type="button" class="btn btn-outline-light" id="downloadChart" data-i18n-title="downloadChart" data-i18n-aria-label="downloadChart" title="Grafiek downloaden" aria-label="Grafiek downloaden">
@@ -371,15 +426,15 @@ $faviconHref = appAssetPath('favicon.svg');
                                 <thead>
                                     <tr>
                                         <th data-i18n="year">Jaar</th>
-                                        <th data-i18n="precipitation">Neerslag</th>
+                                        <th data-i18n="rainTotal">Neerslag totaal</th>
+                                        <th data-i18n="rainMinMonth">Droogste maand</th>
+                                        <th data-i18n="rainAvgMonth">Gem. maand</th>
+                                        <th data-i18n="rainMaxMonth">Natste maand</th>
                                         <th data-i18n="daysWithPrecipitation">Dagen met neerslag</th>
                                         <th data-i18n="tempMin">Laagste min.</th>
                                         <th data-i18n="tempAvg">Gem. temp.</th>
                                         <th data-i18n="tempMax">Hoogste max.</th>
                                         <th data-i18n="sunHours">Zonuren</th>
-                                        <th data-i18n="windAvg">Gem. wind</th>
-                                        <th data-i18n="windMaxHourly">Max. uurwind</th>
-                                        <th data-i18n="windGustMax">Max. windstoot</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -387,14 +442,14 @@ $faviconHref = appAssetPath('favicon.svg');
                                     <tr>
                                         <td><?php echo h($row['year']); ?></td>
                                         <td><?php echo formatMetricValue($row['precipitation_mm'], 'mm'); ?></td>
-                                        <td><?php echo h($row['precipitation_days']); ?></td>
+                                        <td><?php echo formatMetricValue($row['precipitation_min_month_mm'], 'mm'); ?></td>
+                                        <td><?php echo formatMetricValue($row['precipitation_avg_month_mm'], 'mm'); ?></td>
+                                        <td><?php echo formatMetricValue($row['precipitation_max_month_mm'], 'mm'); ?></td>
+                                        <td><?php echo $row['precipitation_days'] === null ? '--' : h($row['precipitation_days']); ?></td>
                                         <td><?php echo formatMetricValue($row['temp_min_c'], '°C', false); ?></td>
                                         <td><?php echo formatMetricValue($row['temp_avg_c'], '°C', false); ?></td>
                                         <td><?php echo formatMetricValue($row['temp_max_c'], '°C', false); ?></td>
                                         <td><?php echo formatMetricValue($row['sunshine_hours'], 'h'); ?></td>
-                                        <td><?php echo formatMetricValue($row['wind_avg_kmh'], 'km/h'); ?></td>
-                                        <td><?php echo formatMetricValue($row['wind_max_kmh'], 'km/h'); ?></td>
-                                        <td><?php echo formatMetricValue($row['wind_gust_max_kmh'], 'km/h'); ?></td>
                                     </tr>
                                     <?php endforeach; ?>
                                 </tbody>
@@ -427,7 +482,7 @@ $faviconHref = appAssetPath('favicon.svg');
             : 'nl';
         let yearlyChart;
         let activeMetric = 'precipitation';
-        let activeChartType = 'bar';
+        let activeChartType = 'line';
 
         const metricConfig = {
             precipitation: {
@@ -436,7 +491,9 @@ $faviconHref = appAssetPath('favicon.svg');
                 unitKey: 'yearlyUnitMm',
                 beginAtZero: true,
                 datasets: [
-                    { labelKey: 'yearlyChartDatasetPrecipitation', dataKey: 'precipitation_mm' }
+                    { labelKey: 'yearlyChartDatasetRainMinMonth', dataKey: 'precipitation_min_month_mm' },
+                    { labelKey: 'yearlyChartDatasetRainAvgMonth', dataKey: 'precipitation_avg_month_mm' },
+                    { labelKey: 'yearlyChartDatasetRainMaxMonth', dataKey: 'precipitation_max_month_mm' }
                 ]
             },
             temperature: {
@@ -457,17 +514,6 @@ $faviconHref = appAssetPath('favicon.svg');
                 beginAtZero: true,
                 datasets: [
                     { labelKey: 'yearlyChartDatasetSunshine', dataKey: 'sunshine_hours' }
-                ]
-            },
-            wind: {
-                titleKey: 'yearlyChartTitleWind',
-                axisKey: 'yearlyAxisWind',
-                unitKey: 'yearlyUnitKmh',
-                beginAtZero: true,
-                datasets: [
-                    { labelKey: 'yearlyChartDatasetWindAvg', dataKey: 'wind_avg_kmh' },
-                    { labelKey: 'yearlyChartDatasetWindMax', dataKey: 'wind_max_kmh' },
-                    { labelKey: 'yearlyChartDatasetWindGust', dataKey: 'wind_gust_max_kmh' }
                 ]
             }
         };
