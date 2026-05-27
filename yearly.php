@@ -71,18 +71,30 @@ try {
         SELECT
             YEAR(yyyymmdd) AS year,
             COUNT(*) AS available_days,
-            ROUND(SUM(CASE WHEN rh < 0 THEN 1 ELSE rh END) * 0.1, 1) AS precipitation_mm,
-            SUM(CASE WHEN rh != 0 THEN 1 ELSE 0 END) AS precipitation_days,
-            ROUND(MIN(tn) * 0.1, 1) AS temp_min_c,
-            ROUND(AVG(tg) * 0.1, 1) AS temp_avg_c,
-            ROUND(MAX(tx) * 0.1, 1) AS temp_max_c,
-            ROUND(SUM(CASE WHEN sq < 0 THEN 0 ELSE sq END) * 0.1, 1) AS sunshine_hours,
-            ROUND(MIN(fhn) * 0.1 * 3.6, 1) AS wind_min_kmh,
-            ROUND(AVG(fg) * 0.1 * 3.6, 1) AS wind_avg_kmh,
-            ROUND(MAX(fxx) * 0.1 * 3.6, 1) AS wind_gust_max_kmh
-        FROM knmi
-        WHERE stn = 260
-            AND yyyymmdd >= :start_date
+            ROUND(SUM(CASE WHEN rh_num < 0 THEN 1 ELSE rh_num END) * 0.1, 1) AS precipitation_mm,
+            SUM(CASE WHEN rh_num != 0 THEN 1 ELSE 0 END) AS precipitation_days,
+            ROUND(MIN(tn_num) * 0.1, 1) AS temp_min_c,
+            ROUND(AVG(tg_num) * 0.1, 1) AS temp_avg_c,
+            ROUND(MAX(tx_num) * 0.1, 1) AS temp_max_c,
+            ROUND(SUM(CASE WHEN sq_num < 0 THEN 0 ELSE sq_num END) * 0.1, 1) AS sunshine_hours,
+            ROUND(AVG(fg_num) * 0.1 * 3.6, 1) AS wind_avg_kmh,
+            ROUND(MAX(fhx_num) * 0.1 * 3.6, 1) AS wind_max_kmh,
+            ROUND(MAX(fxx_num) * 0.1 * 3.6, 1) AS wind_gust_max_kmh
+        FROM (
+            SELECT
+                yyyymmdd,
+                CAST(NULLIF(TRIM(rh), '') AS SIGNED) AS rh_num,
+                CAST(NULLIF(TRIM(tn), '') AS SIGNED) AS tn_num,
+                CAST(NULLIF(TRIM(tg), '') AS SIGNED) AS tg_num,
+                CAST(NULLIF(TRIM(tx), '') AS SIGNED) AS tx_num,
+                CAST(NULLIF(TRIM(sq), '') AS SIGNED) AS sq_num,
+                CAST(NULLIF(TRIM(fg), '') AS SIGNED) AS fg_num,
+                CAST(NULLIF(TRIM(fhx), '') AS SIGNED) AS fhx_num,
+                CAST(NULLIF(TRIM(fxx), '') AS SIGNED) AS fxx_num
+            FROM knmi
+            WHERE stn = 260
+                AND yyyymmdd >= :start_date
+        ) AS daily
         GROUP BY YEAR(yyyymmdd)
         ORDER BY year ASC
     ");
@@ -365,9 +377,9 @@ $faviconHref = appAssetPath('favicon.svg');
                                         <th data-i18n="tempAvg">Gem. temp.</th>
                                         <th data-i18n="tempMax">Hoogste max.</th>
                                         <th data-i18n="sunHours">Zonuren</th>
-                                        <th data-i18n="windMin">Min. wind</th>
                                         <th data-i18n="windAvg">Gem. wind</th>
-                                        <th data-i18n="windMax">Max. windstoot</th>
+                                        <th data-i18n="windMaxHourly">Max. uurwind</th>
+                                        <th data-i18n="windGustMax">Max. windstoot</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -380,8 +392,8 @@ $faviconHref = appAssetPath('favicon.svg');
                                         <td><?php echo formatMetricValue($row['temp_avg_c'], '°C', false); ?></td>
                                         <td><?php echo formatMetricValue($row['temp_max_c'], '°C', false); ?></td>
                                         <td><?php echo formatMetricValue($row['sunshine_hours'], 'h'); ?></td>
-                                        <td><?php echo formatMetricValue($row['wind_min_kmh'], 'km/h'); ?></td>
                                         <td><?php echo formatMetricValue($row['wind_avg_kmh'], 'km/h'); ?></td>
+                                        <td><?php echo formatMetricValue($row['wind_max_kmh'], 'km/h'); ?></td>
                                         <td><?php echo formatMetricValue($row['wind_gust_max_kmh'], 'km/h'); ?></td>
                                     </tr>
                                     <?php endforeach; ?>
@@ -453,9 +465,9 @@ $faviconHref = appAssetPath('favicon.svg');
                 unitKey: 'yearlyUnitKmh',
                 beginAtZero: true,
                 datasets: [
-                    { labelKey: 'yearlyChartDatasetWindMin', dataKey: 'wind_min_kmh' },
                     { labelKey: 'yearlyChartDatasetWindAvg', dataKey: 'wind_avg_kmh' },
-                    { labelKey: 'yearlyChartDatasetWindMax', dataKey: 'wind_gust_max_kmh' }
+                    { labelKey: 'yearlyChartDatasetWindMax', dataKey: 'wind_max_kmh' },
+                    { labelKey: 'yearlyChartDatasetWindGust', dataKey: 'wind_gust_max_kmh' }
                 ]
             }
         };
