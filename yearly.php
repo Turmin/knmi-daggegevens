@@ -350,6 +350,7 @@ $manifestHref = appAssetPath('manifest.json');
                                     <button type="button" class="btn <?php echo $pageLanguage === 'nl' ? 'btn-light active' : 'btn-outline-light'; ?>" data-language="nl" aria-pressed="<?php echo $pageLanguage === 'nl' ? 'true' : 'false'; ?>">NL</button>
                                     <button type="button" class="btn <?php echo $pageLanguage === 'en' ? 'btn-light active' : 'btn-outline-light'; ?>" data-language="en" aria-pressed="<?php echo $pageLanguage === 'en' ? 'true' : 'false'; ?>">EN</button>
                                 </div>
+                                <button type="button" class="btn btn-outline-light btn-sm pwa-install-button d-none" id="installPwaButton" data-i18n-title="installApp" data-i18n-aria-label="installApp" title="Installeer KNMI Weer App" aria-label="Installeer KNMI Weer App"><i class="bi bi-download" aria-hidden="true"></i></button>
                             </div>
                         </div>
                     </div>
@@ -940,6 +941,56 @@ $manifestHref = appAssetPath('manifest.json');
         });
     </script>
     <script>
+        let deferredPrompt;
+        const installPwaButton = document.getElementById('installPwaButton');
+
+        function isStandaloneDisplay() {
+            return window.navigator.standalone === true
+                || window.matchMedia('(display-mode: standalone)').matches;
+        }
+
+        function showInstallButton() {
+            if (!installPwaButton || isStandaloneDisplay()) {
+                return;
+            }
+
+            installPwaButton.classList.remove('d-none');
+        }
+
+        function hideInstallButton() {
+            if (installPwaButton) {
+                installPwaButton.classList.add('d-none');
+                installPwaButton.disabled = false;
+            }
+        }
+
+        window.addEventListener('beforeinstallprompt', (event) => {
+            event.preventDefault();
+            deferredPrompt = event;
+            showInstallButton();
+        });
+
+        if (installPwaButton) {
+            installPwaButton.addEventListener('click', () => {
+                if (!deferredPrompt) {
+                    hideInstallButton();
+                    return;
+                }
+
+                installPwaButton.disabled = true;
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.finally(() => {
+                    deferredPrompt = null;
+                    hideInstallButton();
+                });
+            });
+        }
+
+        window.addEventListener('appinstalled', () => {
+            deferredPrompt = null;
+            hideInstallButton();
+        });
+
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
                 navigator.serviceWorker.register(<?php echo json_encode(appAssetPath('sw.js'), JSON_UNESCAPED_SLASHES); ?>)

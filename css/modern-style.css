@@ -162,6 +162,39 @@ html.is-standalone .main-container {
     justify-content: flex-end;
 }
 
+.preference-controls .btn-group-sm > .btn,
+.preference-controls .pwa-install-button {
+    align-items: center;
+    box-sizing: border-box;
+    display: inline-flex;
+    height: 32px;
+    justify-content: center;
+    line-height: 1;
+    margin: 0;
+    min-height: 32px;
+    padding-bottom: 0;
+    padding-top: 0;
+}
+
+.preference-controls #themeToggle,
+.preference-controls .pwa-install-button {
+    flex: 0 0 32px;
+    min-width: 32px;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    width: 32px;
+}
+
+.preference-controls [data-language] {
+    min-width: 36px;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+}
+
+.preference-controls .btn i {
+    line-height: 1;
+}
+
 /* Data View Navigation */
 .insight-navigation {
     align-items: center;
@@ -985,30 +1018,6 @@ a {
     max-width: 1400px;
 }
 
-/* PWA Styles */
-.install-prompt {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    background: var(--primary-blue);
-    color: white;
-    padding: 1rem;
-    border-radius: 10px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-    z-index: 1000;
-    display: none;
-}
-
-.install-prompt button {
-    background: white;
-    color: var(--primary-blue);
-    border: none;
-    padding: 0.5rem 1rem;
-    border-radius: 5px;
-    margin-left: 1rem;
-    cursor: pointer;
-}
-
 /* Additional Weather Metric Styles */
 .weather-metric .metric-label {
     font-size: 0.9rem;
@@ -1368,7 +1377,8 @@ a {
         flex: 0 0 auto;
     }
 
-    .preference-controls .btn-group[aria-label="Language"] {
+    .preference-controls .btn-group[aria-label="Language"],
+    .preference-controls .btn-group[data-i18n-aria-label="language"] {
         flex: 0 0 auto;
     }
 
@@ -1376,6 +1386,10 @@ a {
     .date-navigation .date-action-group .btn {
         margin: 0 !important;
         min-width: 0;
+    }
+
+    .preference-controls [data-language] {
+        min-width: 36px !important;
     }
 
     .date-navigation .date-action-group {
@@ -1446,10 +1460,12 @@ a {
     align-items: center;
     aspect-ratio: 1;
     display: inline-flex;
+    height: 32px;
     justify-content: center;
-    padding-left: 0.5rem;
-    padding-right: 0.5rem;
+    padding-left: 0;
+    padding-right: 0;
     white-space: nowrap;
+    width: 32px;
 }
 
 .footer-documents {
