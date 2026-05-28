@@ -455,8 +455,8 @@ if ($initialWeatherJson === false) {
                             <div class="col-md-4">
                                 <div class="weather-metric">
                                     <div class="d-flex justify-content-between align-items-center">
-                                        <span class="metric-label" data-i18n="average">Gemiddeld</span>
-                                        <span class="metric-value" id="primaryTemp">
+                                        <span class="metric-label"><span data-i18n="maximum">Maximum</span> <small id="primaryTempMaxTime" class="text-muted"></small></span>
+                                        <span class="metric-value" id="primaryTempMax">
                                             <div class="loading-placeholder">--°C</div>
                                         </span>
                                     </div>
@@ -475,8 +475,8 @@ if ($initialWeatherJson === false) {
                             <div class="col-md-4">
                                 <div class="weather-metric">
                                     <div class="d-flex justify-content-between align-items-center">
-                                        <span class="metric-label"><span data-i18n="maximum">Maximum</span> <small id="primaryTempMaxTime" class="text-muted"></small></span>
-                                        <span class="metric-value" id="primaryTempMax">
+                                        <span class="metric-label" data-i18n="average">Gemiddeld</span>
+                                        <span class="metric-value" id="primaryTemp">
                                             <div class="loading-placeholder">--°C</div>
                                         </span>
                                     </div>

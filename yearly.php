@@ -248,9 +248,9 @@ foreach ($rainSummaryRows as $row) {
 
 foreach ($summaryRows as $row) {
     if (
-        $row['temp_avg_c'] !== null
-        && $row['temp_avg_c'] !== ''
-        && ($warmest === null || (float)$row['temp_avg_c'] > (float)$warmest['temp_avg_c'])
+        $row['temp_max_c'] !== null
+        && $row['temp_max_c'] !== ''
+        && ($warmest === null || (float)$row['temp_max_c'] > (float)$warmest['temp_max_c'])
     ) {
         $warmest = $row;
     }
@@ -383,7 +383,7 @@ $faviconHref = appAssetPath('favicon.svg');
                                     <i class="bi bi-droplet text-info fs-3"></i>
                                     <div>
                                         <div class="metric-value"><?php echo formatMetricValue($average, 'mm'); ?></div>
-                                        <small data-i18n="averagePerYear">Gem. neerslag per volledig jaar</small>
+                                        <small data-i18n="averagePerYear">Gemiddelde jaarlijkse neerslag</small>
                                     </div>
                                 </div>
                             </div>
@@ -418,7 +418,7 @@ $faviconHref = appAssetPath('favicon.svg');
                                         <div class="metric-value"><?php echo $warmest ? h($warmest['year']) : '--'; ?></div>
                                         <small>
                                             <span data-i18n="warmestYear">Warmste jaar:</span>
-                                            <?php echo formatMetricValue($warmest['temp_avg_c'] ?? null, '°C', false); ?>
+                                            <?php echo formatMetricValue($warmest['temp_max_c'] ?? null, '°C', false); ?>
                                         </small>
                                     </div>
                                 </div>
@@ -498,13 +498,11 @@ $faviconHref = appAssetPath('favicon.svg');
                                         <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="0" data-i18n="year">Jaar</button></th>
                                         <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="1" data-i18n="rainTotal">Neerslag totaal</button></th>
                                         <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="2" data-i18n="rainMinMonth">Droogste maand</button></th>
-                                        <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="3" data-i18n="rainAvgMonth">Gem. maand</button></th>
-                                        <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="4" data-i18n="rainMaxMonth">Natste maand</button></th>
-                                        <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="5" data-i18n="daysWithPrecipitation">Dagen met neerslag</button></th>
-                                        <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="6" data-i18n="tempMin">Laagste min.</button></th>
-                                        <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="7" data-i18n="tempAvg">Gem. temp.</button></th>
-                                        <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="8" data-i18n="tempMax">Hoogste max.</button></th>
-                                        <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="9" data-i18n="sunHours">Zonuren</button></th>
+                                        <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="3" data-i18n="rainMaxMonth">Natste maand</button></th>
+                                        <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="4" data-i18n="daysWithPrecipitation">Dagen met neerslag</button></th>
+                                        <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="5" data-i18n="tempMin">Laagste min.</button></th>
+                                        <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="6" data-i18n="tempMax">Hoogste max.</button></th>
+                                        <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="7" data-i18n="sunHours">Zonuren</button></th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -513,11 +511,9 @@ $faviconHref = appAssetPath('favicon.svg');
                                         <td<?php echo sortAttribute($row['year']); ?>><?php echo h($row['year']); ?></td>
                                         <td<?php echo sortAttribute($row['precipitation_mm']); ?>><?php echo formatMetricValue($row['precipitation_mm'], 'mm'); ?></td>
                                         <td<?php echo sortAttribute($row['precipitation_min_month_mm']); ?>><?php echo formatMonthMetricValue($row['precipitation_min_month'], $row['precipitation_min_month_mm'], $pageLanguage); ?></td>
-                                        <td<?php echo sortAttribute($row['precipitation_avg_month_mm']); ?>><?php echo formatMonthMetricValue($row['precipitation_avg_month'], $row['precipitation_avg_month_mm'], $pageLanguage); ?></td>
                                         <td<?php echo sortAttribute($row['precipitation_max_month_mm']); ?>><?php echo formatMonthMetricValue($row['precipitation_max_month'], $row['precipitation_max_month_mm'], $pageLanguage); ?></td>
                                         <td<?php echo sortAttribute($row['precipitation_days']); ?>><?php echo $row['precipitation_days'] === null ? '--' : h($row['precipitation_days']); ?></td>
                                         <td<?php echo sortAttribute($row['temp_min_c']); ?>><?php echo formatMetricValue($row['temp_min_c'], '°C', false); ?></td>
-                                        <td<?php echo sortAttribute($row['temp_avg_c']); ?>><?php echo formatMetricValue($row['temp_avg_c'], '°C', false); ?></td>
                                         <td<?php echo sortAttribute($row['temp_max_c']); ?>><?php echo formatMetricValue($row['temp_max_c'], '°C', false); ?></td>
                                         <td<?php echo sortAttribute($row['sunshine_hours']); ?>><?php echo formatMetricValue($row['sunshine_hours'], 'h'); ?></td>
                                     </tr>
@@ -883,7 +879,6 @@ $faviconHref = appAssetPath('favicon.svg');
                 document.querySelectorAll('[data-metric-type]').forEach(button => {
                     button.addEventListener('click', () => {
                         activeMetric = button.dataset.metricType;
-                        activeChartType = metricConfig[activeMetric].datasets.length > 1 ? 'line' : 'bar';
                         updateMetricControls();
                         updateChart();
                     });

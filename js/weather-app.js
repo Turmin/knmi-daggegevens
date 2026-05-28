@@ -932,7 +932,7 @@ class WeatherApp {
 
     updateComparisonWeatherDisplay(data) {
         // Get primary data for comparison
-        const primaryTemp = this.parseValue(this.getElementText('primaryTemp'));
+        const primaryTemp = this.parseValue(this.getElementText('primaryTempMax'));
         const primaryWind = this.parseValue(this.getElementText('primaryWind'));
         const primaryRain = this.parseValue(this.getElementText('primaryRain'));
         const primarySun = this.parseValue(this.getElementText('primarySun'));
@@ -956,7 +956,7 @@ class WeatherApp {
     }
 
     generateComparisonHTML(data, primaryData) {
-        const tempDiff = this.calculateDifference(data.temperature.avg, primaryData.temp);
+        const tempDiff = this.calculateDifference(data.temperature.max, primaryData.temp);
         const windDiff = this.calculateDifference(data.wind.speed_avg, primaryData.wind);
         const rainDiff = this.calculateDifference(data.precipitation.amount, primaryData.rain);
         const sunDiff = this.calculateDifference(data.sunshine.duration, primaryData.sun);
@@ -969,8 +969,8 @@ class WeatherApp {
                 <div class="col-md-4">
                     <div class="weather-metric comparison-metric">
                         <div class="d-flex justify-content-between align-items-center">
-                            <span class="metric-label">${this.t('average')}</span>
-                            <span class="metric-value comparison-value">${this.formatTemperature(data.temperature.avg)}</span>
+                            <span class="metric-label">${this.t('maximum')} <small class="text-muted">${data.temperature.max_hour ? `(${this.formatHour(data.temperature.max_hour)})` : ''}</small></span>
+                            <span class="metric-value comparison-value">${this.formatTemperature(data.temperature.max)}</span>
                         </div>
                         <small class="text-muted">${this.t('difference')}: ${tempDiff}</small>
                     </div>
@@ -986,8 +986,8 @@ class WeatherApp {
                 <div class="col-md-4">
                     <div class="weather-metric comparison-metric">
                         <div class="d-flex justify-content-between align-items-center">
-                            <span class="metric-label">${this.t('maximum')} <small class="text-muted">${data.temperature.max_hour ? `(${this.formatHour(data.temperature.max_hour)})` : ''}</small></span>
-                            <span class="metric-value comparison-value">${this.formatTemperature(data.temperature.max)}</span>
+                            <span class="metric-label">${this.t('average')}</span>
+                            <span class="metric-value comparison-value">${this.formatTemperature(data.temperature.avg)}</span>
                         </div>
                     </div>
                 </div>

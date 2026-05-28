@@ -21,7 +21,7 @@ class WeatherClimateStats {
             SELECT
                 yyyymmdd AS date,
                 YEAR(yyyymmdd) AS year,
-                tg AS temp_avg,
+                tx AS temp_max,
                 rh AS rain_amount,
                 sq AS sun_duration
             FROM {$this->table}
@@ -58,12 +58,12 @@ class WeatherClimateStats {
         $rainDays = 0;
 
         foreach ($rows as $row) {
-            if ($row['temp_avg'] !== null) {
+            if ($row['temp_max'] !== null) {
                 $item = [
                     'date' => $row['date'],
                     'year' => (int)$row['year'],
-                    'raw' => (float)$row['temp_avg'],
-                    'value' => $this->convertTemperature($row['temp_avg'])
+                    'raw' => (float)$row['temp_max'],
+                    'value' => $this->convertTemperature($row['temp_max'])
                 ];
                 $temperatureRows[] = $item;
                 if ($row['date'] === $date) {
