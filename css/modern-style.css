@@ -986,27 +986,11 @@ a {
 }
 
 /* PWA Styles */
-.install-prompt {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    background: var(--primary-blue);
-    color: white;
-    padding: 1rem;
-    border-radius: 10px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-    z-index: 1000;
-    display: none;
-}
-
-.install-prompt button {
-    background: white;
-    color: var(--primary-blue);
-    border: none;
-    padding: 0.5rem 1rem;
-    border-radius: 5px;
-    margin-left: 1rem;
-    cursor: pointer;
+.pwa-install-button {
+    align-items: center;
+    flex: 0 0 auto;
+    min-height: 31px;
+    white-space: nowrap;
 }
 
 /* Additional Weather Metric Styles */

@@ -337,6 +337,7 @@ if ($initialWeatherJson === false) {
                                     <button type="button" class="btn btn-light active" data-language="nl" aria-pressed="true">NL</button>
                                     <button type="button" class="btn btn-outline-light" data-language="en" aria-pressed="false">EN</button>
                                 </div>
+                                <button type="button" class="btn btn-outline-light btn-sm pwa-install-button d-none" id="installPwaButton" data-i18n="installShort" data-i18n-title="installApp" data-i18n-aria-label="installApp" title="Installeer KNMI Weer App" aria-label="Installeer KNMI Weer App">Installeer</button>
                             </div>
                         </div>
                     </div>
@@ -966,52 +967,54 @@ if ($initialWeatherJson === false) {
 
         // PWA Install Prompt
         let deferredPrompt;
-        
-        window.addEventListener('beforeinstallprompt', (e) => {
-            // Keep the browser's native install UI available, and also keep our fallback prompt.
-            deferredPrompt = e;
-            showInstallPrompt();
-        });
+        const installPwaButton = document.getElementById('installPwaButton');
 
-        function showInstallPrompt() {
-            if (document.querySelector('.install-prompt')) {
+        function isStandaloneDisplay() {
+            return window.navigator.standalone === true
+                || window.matchMedia('(display-mode: standalone)').matches;
+        }
+
+        function showInstallButton() {
+            if (!installPwaButton || isStandaloneDisplay()) {
                 return;
             }
 
-            const language = localStorage.getItem('knmi-language') || 'nl';
-            const t = window.weatherApp
-                ? window.weatherApp.t.bind(window.weatherApp)
-                : (key) => window.AppI18n?.[language]?.[key] || window.AppI18n?.nl?.[key] || key;
-            const installPrompt = document.createElement('div');
-            installPrompt.className = 'install-prompt';
-            installPrompt.innerHTML = `
-                <span><i class="bi bi-phone me-2"></i>${t('installApp')}</span>
-                <button onclick="installPWA()">${t('install')}</button>
-                <button onclick="dismissInstall()" style="margin-left: 10px; background: transparent; color: white; border: 1px solid white;">${t('later')}</button>
-            `;
-            document.body.appendChild(installPrompt);
-            installPrompt.style.display = 'block';
+            installPwaButton.classList.remove('d-none');
         }
 
-        function installPWA() {
-            if (deferredPrompt) {
+        function hideInstallButton() {
+            if (installPwaButton) {
+                installPwaButton.classList.add('d-none');
+                installPwaButton.disabled = false;
+            }
+        }
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            showInstallButton();
+        });
+
+        if (installPwaButton) {
+            installPwaButton.addEventListener('click', () => {
+                if (!deferredPrompt) {
+                    hideInstallButton();
+                    return;
+                }
+
+                installPwaButton.disabled = true;
                 deferredPrompt.prompt();
-                deferredPrompt.userChoice.then((choiceResult) => {
-                    if (choiceResult.outcome === 'accepted') {
-                        console.log('User accepted the install prompt');
-                    }
+                deferredPrompt.userChoice.finally(() => {
                     deferredPrompt = null;
-                    dismissInstall();
+                    hideInstallButton();
                 });
-            }
+            });
         }
 
-        function dismissInstall() {
-            const prompt = document.querySelector('.install-prompt');
-            if (prompt) {
-                prompt.remove();
-            }
-        }
+        window.addEventListener('appinstalled', () => {
+            deferredPrompt = null;
+            hideInstallButton();
+        });
 
         function showUpdateAvailable() {
             if (window.weatherApp) {
