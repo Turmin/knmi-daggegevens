@@ -170,6 +170,46 @@ class WeatherAPI {
         }
     }
 
+    async fetchCalendarDayStats(date, station = 260, forceRefresh = false) {
+        const cacheKey = `calendar-day-${date}-${station}`;
+        const cachedData = this.cache.get(cacheKey);
+
+        if (!forceRefresh && cachedData && Date.now() - cachedData.timestamp < this.cacheDuration) {
+            return cachedData.data;
+        }
+
+        try {
+            const refreshSuffix = forceRefresh ? `&_=${Date.now()}` : '';
+            const response = await fetch(`${this.baseUrl}/calendar-day?date=${date}&station=${station}${refreshSuffix}`, {
+                method: 'GET',
+                cache: forceRefresh ? 'reload' : 'default',
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error?.message || 'API request failed');
+            }
+
+            this.cache.set(cacheKey, {
+                data: result.data,
+                timestamp: Date.now()
+            });
+
+            return result.data;
+        } catch (error) {
+            console.error('Error fetching calendar day stats:', error);
+            throw error;
+        }
+    }
+
     clearCache() {
         this.cache.clear();
     }

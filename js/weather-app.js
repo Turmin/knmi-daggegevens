@@ -16,6 +16,7 @@ class WeatherApp {
         this.chartRangeEnd = null;
         this.currentWeatherData = null;
         this.currentComparisonData = null;
+        this.calendarDayStats = null;
         this.monthlyStats = null;
         this.monthlyStatsYear = null;
         this.monthlyStatsMonth = null;
@@ -128,7 +129,8 @@ class WeatherApp {
         try {
             await Promise.all([
                 this.loadSelectedChartRange(),
-                this.loadMonthlyStats()
+                this.loadMonthlyStats(),
+                this.loadCalendarDayStats()
             ]);
         } finally {
             this.hideLoading();
@@ -363,6 +365,10 @@ class WeatherApp {
         if (this.monthlyStats) {
             this.updateMonthlyStatsDisplay(this.monthlyStats, this.monthlyStatsYear, this.monthlyStatsMonth);
         }
+
+        if (this.calendarDayStats) {
+            this.updateCalendarDayStatsDisplay(this.calendarDayStats);
+        }
     }
 
     setTheme(theme) {
@@ -536,6 +542,16 @@ class WeatherApp {
         }).format(date);
     }
 
+    formatCalendarDay(month, day) {
+        const locale = this.language === 'en' ? 'en-GB' : 'nl-NL';
+        const date = new Date(2000, month - 1, day);
+
+        return new Intl.DateTimeFormat(locale, {
+            day: 'numeric',
+            month: 'long'
+        }).format(date);
+    }
+
     setupTouchSupport() {
         let touchStartX = 0;
         let touchEndX = 0;
@@ -595,7 +611,8 @@ class WeatherApp {
             
             await Promise.all([
                 this.loadSelectedChartRange(),
-                this.loadMonthlyStats()
+                this.loadMonthlyStats(),
+                this.loadCalendarDayStats()
             ]);
             
         } catch (error) {
@@ -791,6 +808,19 @@ class WeatherApp {
         }
     }
 
+    async loadCalendarDayStats() {
+        try {
+            const dateStr = this.formatDateForAPI(this.currentDate);
+            const stats = await this.api.fetchCalendarDayStats(dateStr);
+            this.calendarDayStats = stats;
+            this.updateCalendarDayStatsDisplay(stats);
+        } catch (error) {
+            console.error('Error loading calendar day stats:', error);
+            this.calendarDayStats = null;
+            this.updateCalendarDayStatsDisplay(null);
+        }
+    }
+
     navigateDay(direction) {
         const newDate = new Date(this.currentDate);
         newDate.setDate(newDate.getDate() + direction);
@@ -902,7 +932,7 @@ class WeatherApp {
 
     updateComparisonWeatherDisplay(data) {
         // Get primary data for comparison
-        const primaryTemp = this.parseValue(this.getElementText('primaryTemp'));
+        const primaryTemp = this.parseValue(this.getElementText('primaryTempMax'));
         const primaryWind = this.parseValue(this.getElementText('primaryWind'));
         const primaryRain = this.parseValue(this.getElementText('primaryRain'));
         const primarySun = this.parseValue(this.getElementText('primarySun'));
@@ -926,7 +956,7 @@ class WeatherApp {
     }
 
     generateComparisonHTML(data, primaryData) {
-        const tempDiff = this.calculateDifference(data.temperature.avg, primaryData.temp);
+        const tempDiff = this.calculateDifference(data.temperature.max, primaryData.temp);
         const windDiff = this.calculateDifference(data.wind.speed_avg, primaryData.wind);
         const rainDiff = this.calculateDifference(data.precipitation.amount, primaryData.rain);
         const sunDiff = this.calculateDifference(data.sunshine.duration, primaryData.sun);
@@ -939,8 +969,8 @@ class WeatherApp {
                 <div class="col-md-4">
                     <div class="weather-metric comparison-metric">
                         <div class="d-flex justify-content-between align-items-center">
-                            <span class="metric-label">${this.t('average')}</span>
-                            <span class="metric-value comparison-value">${this.formatTemperature(data.temperature.avg)}</span>
+                            <span class="metric-label">${this.t('maximum')} <small class="text-muted">${data.temperature.max_hour ? `(${this.formatHour(data.temperature.max_hour)})` : ''}</small></span>
+                            <span class="metric-value comparison-value">${this.formatTemperature(data.temperature.max)}</span>
                         </div>
                         <small class="text-muted">${this.t('difference')}: ${tempDiff}</small>
                     </div>
@@ -956,8 +986,8 @@ class WeatherApp {
                 <div class="col-md-4">
                     <div class="weather-metric comparison-metric">
                         <div class="d-flex justify-content-between align-items-center">
-                            <span class="metric-label">${this.t('maximum')} <small class="text-muted">${data.temperature.max_hour ? `(${this.formatHour(data.temperature.max_hour)})` : ''}</small></span>
-                            <span class="metric-value comparison-value">${this.formatTemperature(data.temperature.max)}</span>
+                            <span class="metric-label">${this.t('average')}</span>
+                            <span class="metric-value comparison-value">${this.formatTemperature(data.temperature.avg)}</span>
                         </div>
                     </div>
                 </div>
@@ -1127,6 +1157,73 @@ class WeatherApp {
                 </div>
             `;
         }
+    }
+
+    updateCalendarDayStatsDisplay(stats) {
+        const titleEl = document.getElementById('calendarStatsTitle');
+        const subtitleEl = document.getElementById('calendarStatsSubtitle');
+        const content = document.getElementById('calendarStatsContent');
+
+        if (!titleEl || !subtitleEl || !content) return;
+
+        if (!stats) {
+            titleEl.innerHTML = `<i class="bi bi-calendar3-week me-2"></i>${this.escapeHtml(this.t('calendarStats'))}`;
+            subtitleEl.textContent = this.t('calendarStatsUnavailable');
+            content.innerHTML = `<div class="col-12 text-muted">${this.escapeHtml(this.t('calendarStatsUnavailable'))}</div>`;
+            return;
+        }
+
+        const dateLabel = this.formatCalendarDay(stats.month, stats.day);
+        const years = stats.temperature?.years || stats.sample_size || 0;
+        const sameDateDetail = this.t('calendarSameDateAverage', { date: dateLabel });
+        const comparedDetail = this.t('calendarComparedToAverage', { date: dateLabel });
+        const rank = stats.temperature?.rank_warmest;
+        const rankValue = rank && years
+            ? this.t('rankOutOf', { rank, total: years })
+            : '--';
+        const warmerThan = stats.temperature?.warmer_than_percent !== null && stats.temperature?.warmer_than_percent !== undefined
+            ? this.t('warmerThanYears', { percent: stats.temperature.warmer_than_percent })
+            : this.t('notEnoughYears');
+
+        titleEl.innerHTML = `<i class="bi bi-calendar3-week me-2"></i>${this.escapeHtml(this.t('calendarStatsTitle', { date: dateLabel }))}`;
+        subtitleEl.textContent = this.t('calendarYears', { years, date: dateLabel });
+
+        content.innerHTML = `
+            ${this.renderCalendarStatCard('bi-thermometer-sun', 'text-primary', this.formatTemperature(stats.temperature?.average), this.t('calendarAvgTemp'), sameDateDetail)}
+            ${this.renderCalendarStatCard('bi-arrow-left-right', 'text-danger', this.formatSignedTemperature(stats.temperature?.delta), this.t('calendarTempDifference'), comparedDetail, this.deltaClass(stats.temperature?.delta))}
+            ${this.renderCalendarStatCard('bi-list-ol', 'text-success', rankValue, this.t('calendarWarmthRank'), warmerThan)}
+            ${this.renderCalendarRecordCard('bi-arrow-up-circle', 'text-danger', stats.temperature?.warmest, this.t('calendarWarmest', { date: dateLabel }), 'temperature')}
+            ${this.renderCalendarRecordCard('bi-arrow-down-circle', 'text-info', stats.temperature?.coldest, this.t('calendarColdest', { date: dateLabel }), 'temperature')}
+            ${this.renderCalendarStatCard('bi-droplet', 'text-info', this.formatPrecipitation(stats.precipitation?.average), this.t('calendarAvgRain'), sameDateDetail)}
+            ${this.renderCalendarRecordCard('bi-cloud-rain-heavy', 'text-primary', stats.precipitation?.wettest, this.t('calendarWettest', { date: dateLabel }), 'precipitation')}
+            ${this.renderCalendarStatCard('bi-sun', 'text-warning', this.formatDuration(stats.sunshine?.average), this.t('calendarAvgSun'), sameDateDetail)}
+        `;
+    }
+
+    renderCalendarStatCard(icon, iconClass, value, label, detail, valueClass = '') {
+        return `
+            <div class="col-md-6 col-xl-3">
+                <div class="weather-metric monthly-stat calendar-stat">
+                    <i class="bi ${icon} ${iconClass} fs-3"></i>
+                    <div>
+                        <div class="metric-value ${valueClass}">${this.escapeHtml(value)}</div>
+                        <small>${this.escapeHtml(label)}</small>
+                        <small class="metric-detail">${this.escapeHtml(detail)}</small>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    renderCalendarRecordCard(icon, iconClass, record, label, type) {
+        const value = record
+            ? this.formatRecordValue(record, type)
+            : '--';
+        const detail = record?.year
+            ? this.t('calendarRecordYear', { year: record.year })
+            : this.t('calendarStatsUnavailable');
+
+        return this.renderCalendarStatCard(icon, iconClass, value, label, detail);
     }
 
     handleQuickAction(action) {
@@ -1303,6 +1400,14 @@ class WeatherApp {
         return value !== null && value !== undefined ? `${value}°C` : '--°C';
     }
 
+    formatSignedTemperature(value) {
+        if (value === null || value === undefined) return '--°C';
+
+        const number = Number(value);
+        const sign = number > 0 ? '+' : '';
+        return `${sign}${number.toFixed(1)}°C`;
+    }
+
     formatWindSpeed(value) {
         return value !== null && value !== undefined ? `${value}\u00a0km/h` : '--\u00a0km/h';
     }
@@ -1321,6 +1426,28 @@ class WeatherApp {
 
     formatPercent(value) {
         return value !== null && value !== undefined ? `${value}%` : '--%';
+    }
+
+    formatRecordValue(record, type) {
+        if (!record) return '--';
+
+        if (type === 'temperature') {
+            return this.formatTemperature(record.value);
+        }
+
+        if (type === 'precipitation') {
+            return this.formatPrecipitation(record.value);
+        }
+
+        return String(record.value);
+    }
+
+    deltaClass(value) {
+        if (value === null || value === undefined || Number(value) === 0) {
+            return 'metric-neutral';
+        }
+
+        return Number(value) > 0 ? 'metric-positive' : 'metric-negative';
     }
 
     renderWindDirection(wind, indicatorClass = '') {

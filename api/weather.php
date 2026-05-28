@@ -16,15 +16,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once __DIR__ . '/../config/Database.php';
 require_once __DIR__ . '/../models/WeatherData.php';
+require_once __DIR__ . '/../models/WeatherClimateStats.php';
 
 class WeatherAPI {
     private $weatherData;
+    private $climateStats;
     
     public function __construct() {
         try {
             $database = new Database();
             $db = $database->connect();
             $this->weatherData = new WeatherData($db);
+            $this->climateStats = new WeatherClimateStats($db);
         } catch(Exception $e) {
             $this->sendError(500, "Database connection failed");
             exit;
@@ -101,6 +104,10 @@ class WeatherAPI {
             case 'range':
                 $this->getDateRange();
                 break;
+            case 'calendar-day':
+            case 'climate-day':
+                $this->getCalendarDayStats();
+                break;
             default:
                 $this->sendError(404, "Endpoint not found");
         }
@@ -171,6 +178,29 @@ class WeatherAPI {
         $station = $_GET['station'] ?? 260;
         $data = $this->weatherData->getDateRange($station);
         $this->sendSuccess($data);
+    }
+
+    private function getCalendarDayStats() {
+        $date = $_GET['date'] ?? null;
+        $station = $_GET['station'] ?? 260;
+
+        if (!$date) {
+            $this->sendError(400, "Date parameter required");
+            return;
+        }
+
+        if (!$this->validateDate($date)) {
+            $this->sendError(400, "Invalid date format. Use YYYY-MM-DD");
+            return;
+        }
+
+        $data = $this->climateStats->getCalendarDayStats($date, $station);
+
+        if ($data && ($data['sample_size'] ?? 0) > 0) {
+            $this->sendSuccess($data);
+        } else {
+            $this->sendError(404, "No calendar day statistics found for the specified date");
+        }
     }
     
     private function validateDate($date) {

@@ -122,7 +122,7 @@ function writePagesSitemap(PDO $db, string $baseUrl): void {
     writeXmlHeader();
     echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
     writeUrlEntry($baseUrl . '/', $latestDate, 'daily', '1.0');
-    writeUrlEntry($baseUrl . '/precipitation.php', $latestDate, 'monthly', '0.7');
+    writeUrlEntry($baseUrl . '/yearly.php', $latestDate, 'monthly', '0.7');
 
     foreach (glob(__DIR__ . '/doc/*.pdf') ?: [] as $document) {
         $modified = filemtime($document);

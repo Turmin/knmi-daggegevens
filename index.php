@@ -247,7 +247,11 @@ $pageTitle = $pageLanguage === 'en'
     : 'Het weer op ' . $pageDate . ' - KNMI Daggegevens';
 $pageDescription = weatherMetaDescription($initialWeatherData, $pageDate, $pageLanguage);
 $documents = getDocumentLinks();
-$faviconHref = appAssetPath('favicon.svg');
+$faviconIcoHref = appAssetPath('favicon.ico');
+$favicon16Href = appAssetPath('favicon-16x16.png');
+$favicon32Href = appAssetPath('favicon-32x32.png');
+$appleTouchIconHref = appAssetPath('apple-touch-icon.png');
+$manifestHref = appAssetPath('site.webmanifest');
 $initialWeatherJson = json_encode(
     $initialWeatherData,
     JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT
@@ -263,9 +267,16 @@ if ($initialWeatherJson === false) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo h($pageTitle); ?></title>
     <link rel="canonical" href="<?php echo h($canonicalUrl); ?>">
-    <link rel="icon" type="image/svg+xml" href="<?php echo h($faviconHref); ?>">
-    <link rel="shortcut icon" href="<?php echo h($faviconHref); ?>">
+    <link rel="icon" type="image/png" sizes="32x32" href="<?php echo h($favicon32Href); ?>">
+    <link rel="icon" type="image/png" sizes="16x16" href="<?php echo h($favicon16Href); ?>">
+    <link rel="shortcut icon" href="<?php echo h($faviconIcoHref); ?>">
+    <link rel="apple-touch-icon" sizes="180x180" href="<?php echo h($appleTouchIconHref); ?>">
+    <link rel="manifest" href="<?php echo h($manifestHref); ?>">
     <meta name="theme-color" content="#0a66c2">
+    <meta name="application-name" content="KNMI Daggegevens">
+    <meta name="apple-mobile-web-app-title" content="KNMI Daggegevens">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="description" content="<?php echo h($pageDescription); ?>">
     <meta name="keywords" content="knmi, weer, weerstatistieken, temperatuur, neerslag, verdamping, zonneschijnduur, straling, bedekkingsgraad, zicht, luchtvochtigheid">
     <script>
@@ -325,6 +336,22 @@ if ($initialWeatherJson === false) {
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Data Views -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <nav class="insight-navigation" data-i18n-aria-label="dataViews" aria-label="Dataweergaven">
+                    <a href="./" class="insight-link active" aria-current="page">
+                        <i class="bi bi-calendar-check"></i>
+                        <span data-i18n="dailyData">Daggegevens</span>
+                    </a>
+                    <a href="<?php echo h(appAssetPath('yearly.php')); ?>" class="insight-link">
+                        <i class="bi bi-bar-chart-line"></i>
+                        <span data-i18n="yearlyStatistics">Jaarstatistieken</span>
+                    </a>
+                </nav>
             </div>
         </div>
 
@@ -439,8 +466,8 @@ if ($initialWeatherJson === false) {
                             <div class="col-md-4">
                                 <div class="weather-metric">
                                     <div class="d-flex justify-content-between align-items-center">
-                                        <span class="metric-label" data-i18n="average">Gemiddeld</span>
-                                        <span class="metric-value" id="primaryTemp">
+                                        <span class="metric-label"><span data-i18n="maximum">Maximum</span> <small id="primaryTempMaxTime" class="text-muted"></small></span>
+                                        <span class="metric-value" id="primaryTempMax">
                                             <div class="loading-placeholder">--°C</div>
                                         </span>
                                     </div>
@@ -459,8 +486,8 @@ if ($initialWeatherJson === false) {
                             <div class="col-md-4">
                                 <div class="weather-metric">
                                     <div class="d-flex justify-content-between align-items-center">
-                                        <span class="metric-label"><span data-i18n="maximum">Maximum</span> <small id="primaryTempMaxTime" class="text-muted"></small></span>
-                                        <span class="metric-value" id="primaryTempMax">
+                                        <span class="metric-label" data-i18n="average">Gemiddeld</span>
+                                        <span class="metric-value" id="primaryTemp">
                                             <div class="loading-placeholder">--°C</div>
                                         </span>
                                     </div>
@@ -639,6 +666,27 @@ if ($initialWeatherJson === false) {
             </div>
         </div>
 
+        <!-- Calendar Day Statistics -->
+        <div class="row mb-4" id="calendarStatsRow">
+            <div class="col-12">
+                <div class="weather-card">
+                    <div class="card-header">
+                        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
+                            <h4 class="mb-0" id="calendarStatsTitle">
+                                <i class="bi bi-calendar3-week me-2"></i><span data-i18n="calendarStats">Deze datum door de jaren heen</span>
+                            </h4>
+                            <small class="text-light" id="calendarStatsSubtitle" data-i18n="loading">Laden...</small>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3 metric-card-grid" id="calendarStatsContent">
+                            <div class="col-12 text-muted" data-i18n="loading">Laden...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Charts Section -->
         <div class="row">
             <div class="col-12">
@@ -778,7 +826,6 @@ if ($initialWeatherJson === false) {
                         <span id="lastUpdateText" data-update-time="<?php echo date('c'); ?>">Laatste update: <?php echo date('d-m-Y H:i'); ?></span> •
                         <span id="lastRefreshText"></span>
                         <span id="lastRefreshSeparator" style="display: none;"> • </span>
-                        <a href="<?php echo h(appAssetPath('precipitation.php')); ?>" class="text-decoration-none" data-i18n="annualPrecipitation">Jaarlijkse neerslag</a> •
                         <a href="javascript:void(0)" id="aboutBtn" class="text-decoration-none" data-i18n="aboutSite">Over deze website</a> •
                         <a href="javascript:void(0)" id="helpBtn" class="text-decoration-none" data-i18n="helpShortcuts">Help & Sneltoetsen</a>
                     </p>
@@ -891,7 +938,7 @@ if ($initialWeatherJson === false) {
         // Service Worker Registration
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js')
+                navigator.serviceWorker.register(<?php echo json_encode(appAssetPath('sw.js'), JSON_UNESCAPED_SLASHES); ?>)
                     .then(function(registration) {
                         console.log('ServiceWorker registration successful');
                         
@@ -925,6 +972,10 @@ if ($initialWeatherJson === false) {
         });
 
         function showInstallPrompt() {
+            if (document.querySelector('.install-prompt')) {
+                return;
+            }
+
             const language = localStorage.getItem('knmi-language') || 'nl';
             const t = window.weatherApp
                 ? window.weatherApp.t.bind(window.weatherApp)
