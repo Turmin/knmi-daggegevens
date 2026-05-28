@@ -40,11 +40,10 @@ jobs:
             --include='robots.txt' \
             --include='.htaccess' \
             --include='sw.js' \
-            --include='site.webmanifest' \
             --include='manifest.json' \
             --include='css/***' \
             --include='js/***' \
-            --include='images/***' \
+            --include='icons/***' \
             --include='admin/***' \
             --include='api/***' \
             --include='doc/***' \
