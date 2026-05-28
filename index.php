@@ -118,11 +118,11 @@ function weatherMetaDescription($weather, $pageDate, $language = 'nl') {
 
     if ($language === 'en') {
         $parts = [];
-        if ($average !== null) {
-            $parts[] = 'average temperature ' . $average . ' °C';
-        }
         if ($maximum !== null) {
             $parts[] = 'maximum ' . $maximum . ' °C';
+        }
+        if ($average !== null) {
+            $parts[] = 'average temperature ' . $average . ' °C';
         }
         if ($rain !== null) {
             $parts[] = $rain . ' mm precipitation';
