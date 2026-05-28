@@ -44,12 +44,40 @@
 }
 
 /* Base Styles */
+html {
+    background: var(--page-bg);
+    min-height: 100%;
+}
+
 body {
     background: var(--page-bg);
     color: var(--text-main);
     min-height: 100vh;
+    min-height: 100dvh;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
     overflow-x: hidden;
+}
+
+@supports (padding: env(safe-area-inset-top)) {
+    body {
+        padding-bottom: env(safe-area-inset-bottom);
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+        padding-top: env(safe-area-inset-top);
+    }
+}
+
+@media all and (display-mode: standalone) {
+    .main-container {
+        animation: none;
+        opacity: 1;
+    }
+}
+
+html.is-standalone .main-container {
+    animation: none;
+    opacity: 1;
 }
 
 @keyframes spin {

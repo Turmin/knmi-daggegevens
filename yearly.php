@@ -268,17 +268,17 @@ $downloadFilename = $firstYear && $lastYear
     ? 'yearly-statistics-' . $firstYear . '-' . $lastYear . '.png'
     : 'yearly-statistics-chart.png';
 $canonicalUrl = siteBaseUrl() . '/yearly.php';
-$faviconIcoHref = appAssetPath('favicon.ico');
-$favicon16Href = appAssetPath('favicon-16x16.png');
-$favicon32Href = appAssetPath('favicon-32x32.png');
-$appleTouchIconHref = appAssetPath('apple-touch-icon.png');
-$manifestHref = appAssetPath('site.webmanifest');
+$faviconIcoHref = appAssetPath('icons/favicon.ico');
+$favicon16Href = appAssetPath('icons/favicon-16x16.png');
+$favicon32Href = appAssetPath('icons/favicon-32x32.png');
+$appleTouchIconHref = appAssetPath('icons/apple-touch-icon.png');
+$manifestHref = appAssetPath('manifest.json');
 ?>
 <!DOCTYPE html>
 <html lang="<?php echo h($pageLanguage); ?>" data-theme="light">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title><?php echo h($pageTitle); ?></title>
     <link rel="canonical" href="<?php echo h($canonicalUrl); ?>">
     <link rel="icon" type="image/png" sizes="32x32" href="<?php echo h($favicon32Href); ?>">
@@ -287,16 +287,21 @@ $manifestHref = appAssetPath('site.webmanifest');
     <link rel="apple-touch-icon" sizes="180x180" href="<?php echo h($appleTouchIconHref); ?>">
     <link rel="manifest" href="<?php echo h($manifestHref); ?>">
     <meta name="theme-color" content="#0a66c2">
-    <meta name="application-name" content="KNMI Daggegevens">
-    <meta name="apple-mobile-web-app-title" content="KNMI Daggegevens">
+    <meta name="application-name" content="KNMI Weer">
+    <meta name="apple-mobile-web-app-title" content="KNMI Weer">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="description" content="<?php echo h($pageDescription); ?>">
     <script>
         (function() {
+            const isStandalone = window.navigator.standalone === true
+                || window.matchMedia('(display-mode: standalone)').matches;
             const savedTheme = localStorage.getItem('knmi-theme');
             const savedLanguage = localStorage.getItem('knmi-language') || '<?php echo h($pageLanguage); ?>';
             const preferredTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            if (isStandalone) {
+                document.documentElement.classList.add('is-standalone');
+            }
             document.documentElement.dataset.theme = savedTheme || preferredTheme;
             document.documentElement.lang = ['nl', 'en'].includes(savedLanguage) ? savedLanguage : 'nl';
         })();

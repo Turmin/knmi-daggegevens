@@ -1,20 +1,20 @@
 // sw.js - Service Worker for KNMI Weather App
-const CACHE_NAME = 'knmi-weather-v1.1.1';
+const CACHE_NAME = 'knmi-weather-v1.1.3';
+const APP_SHELL_URL = new URL('./', self.location.href).href;
 const urlsToCache = [
     './',
-    './site.webmanifest',
     './manifest.json',
-    './favicon.ico',
-    './favicon-16x16.png',
-    './favicon-32x32.png',
-    './android-chrome-192x192.png',
-    './android-chrome-512x512.png',
-    './apple-touch-icon.png',
-    // External dependencies (cached for offline use)
-    'https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css',
-    'https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.1/font/bootstrap-icons.min.css'
+    './icons/favicon.ico',
+    './icons/favicon-16x16.png',
+    './icons/favicon-32x32.png',
+    './icons/android-chrome-192x192.png',
+    './icons/android-chrome-512x512.png',
+    './icons/apple-touch-icon.png',
+    './css/modern-style.css',
+    './js/app-i18n.js',
+    './js/weather-api.js',
+    './js/weather-app.js',
+    './js/chart-manager.js'
 ];
 
 // Install event - cache resources
@@ -118,7 +118,7 @@ self.addEventListener('fetch', event => {
                         if (cachedResponse) return cachedResponse;
 
                         if (event.request.headers.get('accept')?.includes('text/html')) {
-                            return caches.match('/');
+                            return caches.match(APP_SHELL_URL);
                         }
 
                         return new Response('', { status: 504, statusText: 'Offline' });
@@ -160,8 +160,8 @@ self.addEventListener('push', event => {
     const title = data.title || 'KNMI Weer Update';
     const options = {
         body: data.body || 'Nieuwe weergegevens beschikbaar',
-        icon: new URL('android-chrome-192x192.png', self.location.href).href,
-        badge: new URL('android-chrome-192x192.png', self.location.href).href,
+        icon: new URL('icons/android-chrome-192x192.png', self.location.href).href,
+        badge: new URL('icons/android-chrome-192x192.png', self.location.href).href,
         tag: 'weather-update',
         renotify: true,
         data: data.url || '/',
@@ -169,7 +169,7 @@ self.addEventListener('push', event => {
             {
                 action: 'view',
                 title: 'Bekijken',
-                icon: new URL('android-chrome-192x192.png', self.location.href).href
+                icon: new URL('icons/android-chrome-192x192.png', self.location.href).href
             },
             {
                 action: 'close',
