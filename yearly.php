@@ -380,7 +380,7 @@ $manifestHref = appAssetPath('site.webmanifest');
                     </div>
                     <div class="card-body">
                         <div class="row g-3 metric-card-grid">
-                            <!-- <div class="col-md-6 col-xl-2">
+                            <!-- <div class="col-md-6 col-xl">
                                 <div class="weather-metric monthly-stat">
                                     <i class="bi bi-calendar-range text-primary fs-3"></i>
                                     <div>
@@ -389,7 +389,7 @@ $manifestHref = appAssetPath('site.webmanifest');
                                     </div>
                                 </div>
                             </div> -->
-                            <div class="col-md-6 col-xl-2">
+                            <div class="col-md-6 col-xl">
                                 <div class="weather-metric monthly-stat">
                                     <i class="bi bi-droplet text-info fs-3"></i>
                                     <div>
@@ -398,7 +398,7 @@ $manifestHref = appAssetPath('site.webmanifest');
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-6 col-xl-2">
+                            <div class="col-md-6 col-xl">
                                 <div class="weather-metric monthly-stat">
                                     <i class="bi bi-cloud-arrow-down text-success fs-3"></i>
                                     <div>
@@ -410,7 +410,7 @@ $manifestHref = appAssetPath('site.webmanifest');
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-6 col-xl-2">
+                            <div class="col-md-6 col-xl">
                                 <div class="weather-metric monthly-stat">
                                     <i class="bi bi-sun text-warning fs-3"></i>
                                     <div>
@@ -422,7 +422,7 @@ $manifestHref = appAssetPath('site.webmanifest');
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-6 col-xl-2">
+                            <div class="col-md-6 col-xl">
                                 <div class="weather-metric monthly-stat">
                                     <i class="bi bi-thermometer-sun text-danger fs-3"></i>
                                     <div>
@@ -434,7 +434,7 @@ $manifestHref = appAssetPath('site.webmanifest');
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-6 col-xl-2">
+                            <div class="col-md-6 col-xl">
                                 <div class="weather-metric monthly-stat">
                                     <i class="bi bi-brightness-high text-warning fs-3"></i>
                                     <div>
