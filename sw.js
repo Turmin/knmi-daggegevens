@@ -1,5 +1,5 @@
 // sw.js - Service Worker for KNMI Weather App
-const CACHE_NAME = 'knmi-weather-v1.1.3';
+const CACHE_NAME = 'knmi-weather-v1.1.4';
 const APP_SHELL_URL = new URL('./', self.location.href).href;
 const urlsToCache = [
     './',
@@ -10,6 +10,8 @@ const urlsToCache = [
     './icons/android-chrome-192x192.png',
     './icons/android-chrome-512x512.png',
     './icons/apple-touch-icon.png',
+    './screenshots/knmi-wide.png',
+    './screenshots/knmi-narrow.png',
     './css/modern-style.css',
     './js/app-i18n.js',
     './js/weather-api.js',

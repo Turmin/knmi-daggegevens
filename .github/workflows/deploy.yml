@@ -44,6 +44,7 @@ jobs:
             --include='css/***' \
             --include='js/***' \
             --include='icons/***' \
+            --include='screenshots/***' \
             --include='admin/***' \
             --include='api/***' \
             --include='doc/***' \
