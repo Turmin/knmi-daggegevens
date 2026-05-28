@@ -268,7 +268,11 @@ $downloadFilename = $firstYear && $lastYear
     ? 'yearly-statistics-' . $firstYear . '-' . $lastYear . '.png'
     : 'yearly-statistics-chart.png';
 $canonicalUrl = siteBaseUrl() . '/yearly.php';
-$faviconHref = appAssetPath('favicon.svg');
+$faviconIcoHref = appAssetPath('favicon.ico');
+$favicon16Href = appAssetPath('favicon-16x16.png');
+$favicon32Href = appAssetPath('favicon-32x32.png');
+$appleTouchIconHref = appAssetPath('apple-touch-icon.png');
+$manifestHref = appAssetPath('site.webmanifest');
 ?>
 <!DOCTYPE html>
 <html lang="<?php echo h($pageLanguage); ?>" data-theme="light">
@@ -277,9 +281,16 @@ $faviconHref = appAssetPath('favicon.svg');
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo h($pageTitle); ?></title>
     <link rel="canonical" href="<?php echo h($canonicalUrl); ?>">
-    <link rel="icon" type="image/svg+xml" href="<?php echo h($faviconHref); ?>">
-    <link rel="shortcut icon" href="<?php echo h($faviconHref); ?>">
+    <link rel="icon" type="image/png" sizes="32x32" href="<?php echo h($favicon32Href); ?>">
+    <link rel="icon" type="image/png" sizes="16x16" href="<?php echo h($favicon16Href); ?>">
+    <link rel="shortcut icon" href="<?php echo h($faviconIcoHref); ?>">
+    <link rel="apple-touch-icon" sizes="180x180" href="<?php echo h($appleTouchIconHref); ?>">
+    <link rel="manifest" href="<?php echo h($manifestHref); ?>">
     <meta name="theme-color" content="#0a66c2">
+    <meta name="application-name" content="KNMI Daggegevens">
+    <meta name="apple-mobile-web-app-title" content="KNMI Daggegevens">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="description" content="<?php echo h($pageDescription); ?>">
     <script>
         (function() {
@@ -922,6 +933,16 @@ $faviconHref = appAssetPath('favicon.svg');
 
             setTheme(document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light');
         });
+    </script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register(<?php echo json_encode(appAssetPath('sw.js'), JSON_UNESCAPED_SLASHES); ?>)
+                    .catch(function(error) {
+                        console.log('ServiceWorker registration failed: ', error);
+                    });
+            });
+        }
     </script>
 </body>
 </html>

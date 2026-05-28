@@ -1,13 +1,15 @@
 // sw.js - Service Worker for KNMI Weather App
-const CACHE_NAME = 'knmi-weather-v1.1.0';
+const CACHE_NAME = 'knmi-weather-v1.1.1';
 const urlsToCache = [
-    // '/',
-    // '/index.php',
-    // '/css/modern-style.css',
-    // '/js/weather-api.js',
-    // '/js/weather-app.js',
-    // '/js/chart-manager.js',
-    // '/manifest.json',
+    './',
+    './site.webmanifest',
+    './manifest.json',
+    './favicon.ico',
+    './favicon-16x16.png',
+    './favicon-32x32.png',
+    './android-chrome-192x192.png',
+    './android-chrome-512x512.png',
+    './apple-touch-icon.png',
     // External dependencies (cached for offline use)
     'https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css',
     'https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js',
@@ -158,8 +160,8 @@ self.addEventListener('push', event => {
     const title = data.title || 'KNMI Weer Update';
     const options = {
         body: data.body || 'Nieuwe weergegevens beschikbaar',
-        icon: '/icons/icon-192x192.png',
-        badge: '/icons/badge-72x72.png',
+        icon: new URL('android-chrome-192x192.png', self.location.href).href,
+        badge: new URL('android-chrome-192x192.png', self.location.href).href,
         tag: 'weather-update',
         renotify: true,
         data: data.url || '/',
@@ -167,7 +169,7 @@ self.addEventListener('push', event => {
             {
                 action: 'view',
                 title: 'Bekijken',
-                icon: '/icons/view-action.png'
+                icon: new URL('android-chrome-192x192.png', self.location.href).href
             },
             {
                 action: 'close',

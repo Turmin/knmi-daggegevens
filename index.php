@@ -247,7 +247,11 @@ $pageTitle = $pageLanguage === 'en'
     : 'Het weer op ' . $pageDate . ' - KNMI Daggegevens';
 $pageDescription = weatherMetaDescription($initialWeatherData, $pageDate, $pageLanguage);
 $documents = getDocumentLinks();
-$faviconHref = appAssetPath('favicon.svg');
+$faviconIcoHref = appAssetPath('favicon.ico');
+$favicon16Href = appAssetPath('favicon-16x16.png');
+$favicon32Href = appAssetPath('favicon-32x32.png');
+$appleTouchIconHref = appAssetPath('apple-touch-icon.png');
+$manifestHref = appAssetPath('site.webmanifest');
 $initialWeatherJson = json_encode(
     $initialWeatherData,
     JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT
@@ -263,9 +267,16 @@ if ($initialWeatherJson === false) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo h($pageTitle); ?></title>
     <link rel="canonical" href="<?php echo h($canonicalUrl); ?>">
-    <link rel="icon" type="image/svg+xml" href="<?php echo h($faviconHref); ?>">
-    <link rel="shortcut icon" href="<?php echo h($faviconHref); ?>">
+    <link rel="icon" type="image/png" sizes="32x32" href="<?php echo h($favicon32Href); ?>">
+    <link rel="icon" type="image/png" sizes="16x16" href="<?php echo h($favicon16Href); ?>">
+    <link rel="shortcut icon" href="<?php echo h($faviconIcoHref); ?>">
+    <link rel="apple-touch-icon" sizes="180x180" href="<?php echo h($appleTouchIconHref); ?>">
+    <link rel="manifest" href="<?php echo h($manifestHref); ?>">
     <meta name="theme-color" content="#0a66c2">
+    <meta name="application-name" content="KNMI Daggegevens">
+    <meta name="apple-mobile-web-app-title" content="KNMI Daggegevens">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="description" content="<?php echo h($pageDescription); ?>">
     <meta name="keywords" content="knmi, weer, weerstatistieken, temperatuur, neerslag, verdamping, zonneschijnduur, straling, bedekkingsgraad, zicht, luchtvochtigheid">
     <script>
@@ -927,7 +938,7 @@ if ($initialWeatherJson === false) {
         // Service Worker Registration
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js')
+                navigator.serviceWorker.register(<?php echo json_encode(appAssetPath('sw.js'), JSON_UNESCAPED_SLASHES); ?>)
                     .then(function(registration) {
                         console.log('ServiceWorker registration successful');
                         
@@ -961,6 +972,10 @@ if ($initialWeatherJson === false) {
         });
 
         function showInstallPrompt() {
+            if (document.querySelector('.install-prompt')) {
+                return;
+            }
+
             const language = localStorage.getItem('knmi-language') || 'nl';
             const t = window.weatherApp
                 ? window.weatherApp.t.bind(window.weatherApp)
