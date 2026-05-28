@@ -110,19 +110,19 @@ function weatherMetaDescription($weather, $pageDate, $language = 'nl') {
             : 'Historische KNMI daggegevens voor ' . $pageDate . ' in De Bilt.';
     }
 
-    $average = formatMetaNumber($weather['temperature']['avg'] ?? null, $language);
     $maximum = formatMetaNumber($weather['temperature']['max'] ?? null, $language);
+    $average = formatMetaNumber($weather['temperature']['avg'] ?? null, $language);
     $rain = formatMetaNumber($weather['precipitation']['amount'] ?? null, $language);
     $sun = formatMetaNumber($weather['sunshine']['duration'] ?? null, $language);
     $wind = $weather['wind']['direction_text'] ?? null;
 
     if ($language === 'en') {
         $parts = [];
-        if ($average !== null) {
-            $parts[] = 'average temperature ' . $average . ' °C';
-        }
         if ($maximum !== null) {
             $parts[] = 'maximum ' . $maximum . ' °C';
+        }
+        if ($average !== null) {
+            $parts[] = 'average temperature ' . $average . ' °C';
         }
         if ($rain !== null) {
             $parts[] = $rain . ' mm precipitation';
@@ -141,11 +141,11 @@ function weatherMetaDescription($weather, $pageDate, $language = 'nl') {
     }
 
     $parts = [];
-    if ($average !== null) {
-        $parts[] = 'gemiddeld ' . $average . ' °C';
-    }
     if ($maximum !== null) {
         $parts[] = 'maximaal ' . $maximum . ' °C';
+    }
+    if ($average !== null) {
+        $parts[] = 'gemiddeld ' . $average . ' °C';
     }
     if ($rain !== null) {
         $parts[] = $rain . ' mm neerslag';
