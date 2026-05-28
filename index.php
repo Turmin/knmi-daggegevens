@@ -337,7 +337,7 @@ if ($initialWeatherJson === false) {
                                     <button type="button" class="btn btn-light active" data-language="nl" aria-pressed="true">NL</button>
                                     <button type="button" class="btn btn-outline-light" data-language="en" aria-pressed="false">EN</button>
                                 </div>
-                                <button type="button" class="btn btn-outline-light btn-sm pwa-install-button d-none" id="installPwaButton" data-i18n="installShort" data-i18n-title="installApp" data-i18n-aria-label="installApp" title="Installeer KNMI Weer App" aria-label="Installeer KNMI Weer App">Installeer</button>
+                                <button type="button" class="btn btn-outline-light btn-sm pwa-install-button d-none" id="installPwaButton" data-i18n-title="installApp" data-i18n-aria-label="installApp" title="Installeer KNMI Weer App" aria-label="Installeer KNMI Weer App"><i class="bi bi-download" aria-hidden="true"></i></button>
                             </div>
                         </div>
                     </div>

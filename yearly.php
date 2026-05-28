@@ -350,7 +350,7 @@ $manifestHref = appAssetPath('manifest.json');
                                     <button type="button" class="btn <?php echo $pageLanguage === 'nl' ? 'btn-light active' : 'btn-outline-light'; ?>" data-language="nl" aria-pressed="<?php echo $pageLanguage === 'nl' ? 'true' : 'false'; ?>">NL</button>
                                     <button type="button" class="btn <?php echo $pageLanguage === 'en' ? 'btn-light active' : 'btn-outline-light'; ?>" data-language="en" aria-pressed="<?php echo $pageLanguage === 'en' ? 'true' : 'false'; ?>">EN</button>
                                 </div>
-                                <button type="button" class="btn btn-outline-light btn-sm pwa-install-button d-none" id="installPwaButton" data-i18n="installShort" data-i18n-title="installApp" data-i18n-aria-label="installApp" title="Installeer KNMI Weer App" aria-label="Installeer KNMI Weer App">Installeer</button>
+                                <button type="button" class="btn btn-outline-light btn-sm pwa-install-button d-none" id="installPwaButton" data-i18n-title="installApp" data-i18n-aria-label="installApp" title="Installeer KNMI Weer App" aria-label="Installeer KNMI Weer App"><i class="bi bi-download" aria-hidden="true"></i></button>
                             </div>
                         </div>
                     </div>
