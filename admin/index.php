@@ -66,6 +66,18 @@ function dataFileCountLabel(array $fileInfo): string {
     return $available . '/' . $total . ' station files';
 }
 
+function normalizePostedStation($station): ?int {
+    if ($station === null || $station === '' || $station === 'all') {
+        return null;
+    }
+
+    if (!is_numeric($station) || !KnmiStationCatalog::exists((int)$station)) {
+        throw new InvalidArgumentException('Unknown KNMI station.');
+    }
+
+    return (int)$station;
+}
+
 function loadCredentials(string $credentialsFile): ?array {
     if (!is_file($credentialsFile)) {
         return null;
@@ -105,9 +117,9 @@ function getAdminStats(PDO $db, KnmiDataService $service): array {
         'zip_support' => getZipSupportLabel()
     ];
 
-    $missingDates = $service->getMissingDates($db);
-    $stats['missing_days'] = count($missingDates);
-    $stats['missing_preview'] = array_slice($missingDates, 0, 8);
+    $missingDates = $service->getMissingDateSummary($db);
+    $stats['missing_days'] = (int)($missingDates['count'] ?? 0);
+    $stats['missing_preview'] = $missingDates['preview'] ?? [];
 
     if (!$stats['table_exists']) {
         return $stats;
@@ -220,6 +232,7 @@ $apiPreview = null;
 $cronService = null;
 $cronJobs = [];
 $cronTaskOptions = [];
+$stationOptions = [];
 $cronTokenFile = dirname(__DIR__, 2) . '/knmi.cron.credentials.php';
 $cronTokenConfigured = is_file($cronTokenFile);
 
@@ -235,6 +248,7 @@ if ($isLoggedIn) {
         $weatherData = new WeatherData($db);
         $cronService = new CronScheduleService($db, $service);
         $cronTaskOptions = CronScheduleService::taskOptions();
+        $stationOptions = $service->getStations();
 
         if (($_GET['export'] ?? '') === 'csv') {
             if (!tableExists($db)) {
@@ -255,13 +269,16 @@ if ($isLoggedIn) {
             } elseif ($action === 'cron_run') {
                 $result = $cronService->runJob((int)($_POST['id'] ?? 0));
             } elseif ($action === 'download') {
-                $result = $service->downloadDailyData();
+                $station = normalizePostedStation($_POST['station'] ?? null);
+                $result = $service->downloadDailyData($station);
             } elseif ($action === 'import') {
-                $result = $service->importDailyData($db);
+                $station = normalizePostedStation($_POST['station'] ?? null);
+                $result = $service->importDailyData($db, $station);
             } elseif ($action === 'download_import') {
-                $download = $service->downloadDailyData();
+                $station = normalizePostedStation($_POST['station'] ?? null);
+                $download = $service->downloadDailyData($station);
                 if ($download['success'] ?? false) {
-                    $import = $service->importDailyData($db);
+                    $import = $service->importDailyData($db, $station);
                     $result = [
                         'success' => ($import['success'] ?? false),
                         'messages' => array_merge($download['messages'] ?? [], $import['messages'] ?? [])
@@ -447,23 +464,23 @@ $activity = array_reverse($_SESSION['admin_activity'] ?? []);
                     <div class="admin-card">
                         <div class="card-body">
                             <h2 class="h5 mb-3"><i class="bi bi-cloud-download text-primary me-2"></i>Update data</h2>
-                            <div class="d-grid gap-2">
-                                <form method="post">
-                                    <input type="hidden" name="csrf" value="<?php echo h($csrf); ?>">
-                                    <input type="hidden" name="action" value="download_import">
-                                    <button class="btn btn-primary action-btn w-100" type="submit">Download KNMI file and import missing/new days</button>
-                                </form>
-                                <div class="action-grid">
-                                    <form method="post">
-                                        <input type="hidden" name="csrf" value="<?php echo h($csrf); ?>">
-                                        <input type="hidden" name="action" value="download">
-                                        <button class="btn btn-outline-primary action-btn w-100" type="submit">Download only</button>
-                                    </form>
-                                    <form method="post">
-                                        <input type="hidden" name="csrf" value="<?php echo h($csrf); ?>">
-                                        <input type="hidden" name="action" value="import">
-                                        <button class="btn btn-outline-success action-btn w-100" type="submit">Import missing/new</button>
-                                    </form>
+                            <form method="post" class="d-grid gap-2">
+                                <input type="hidden" name="csrf" value="<?php echo h($csrf); ?>">
+                                <div>
+                                    <label class="form-label" for="update_station">Station</label>
+                                    <select class="form-select" id="update_station" name="station">
+                                        <option value="all">All configured stations</option>
+                                        <?php foreach ($stationOptions as $station): ?>
+                                            <option value="<?php echo (int)$station['id']; ?>"><?php echo h($station['label']); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-primary action-btn w-100" type="submit" name="action" value="download_import">Download KNMI file and import missing/new days</button>
+                                    <div class="action-grid">
+                                        <button class="btn btn-outline-primary action-btn w-100" type="submit" name="action" value="download">Download only</button>
+                                        <button class="btn btn-outline-success action-btn w-100" type="submit" name="action" value="import">Import missing/new</button>
+                                    </div>
                                 </div>
                                 <a class="btn btn-outline-secondary action-btn" href="?export=csv">Export CSV</a>
                                 <?php if (!empty($stats['missing_preview'])): ?>
@@ -471,7 +488,7 @@ $activity = array_reverse($_SESSION['admin_activity'] ?? []);
                                         First missing dates: <?php echo h(implode(', ', $stats['missing_preview'])); ?><?php echo ((int) ($stats['missing_days'] ?? 0) > count($stats['missing_preview'])) ? ' ...' : ''; ?>
                                     </div>
                                 <?php endif; ?>
-                            </div>
+                            </form>
                         </div>
                     </div>
                 </div>
@@ -523,7 +540,7 @@ $activity = array_reverse($_SESSION['admin_activity'] ?? []);
                                 <label class="form-label" for="new_cron_name">Name</label>
                                 <input class="form-control" id="new_cron_name" name="name" value="Daily KNMI update" required>
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-2">
                                 <label class="form-label" for="new_cron_task">Task</label>
                                 <select class="form-select" id="new_cron_task" name="task">
                                     <?php foreach ($cronTaskOptions as $taskKey => $taskLabel): ?>
@@ -531,17 +548,26 @@ $activity = array_reverse($_SESSION['admin_activity'] ?? []);
                                     <?php endforeach; ?>
                                 </select>
                             </div>
+                            <div class="col-md-3">
+                                <label class="form-label" for="new_cron_station">Station</label>
+                                <select class="form-select" id="new_cron_station" name="station">
+                                    <option value="all">All stations</option>
+                                    <?php foreach ($stationOptions as $station): ?>
+                                        <option value="<?php echo (int)$station['id']; ?>"><?php echo h($station['label']); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
                             <div class="col-md-2">
                                 <label class="form-label" for="new_cron_schedule">Schedule</label>
                                 <input class="form-control" id="new_cron_schedule" name="schedule" value="15 8 * * *" required>
                             </div>
-                            <div class="col-md-2">
+                            <div class="col-md-1">
                                 <div class="form-check mb-2">
                                     <input class="form-check-input" type="checkbox" id="new_cron_enabled" name="enabled" value="1">
                                     <label class="form-check-label" for="new_cron_enabled">Enabled</label>
                                 </div>
                             </div>
-                            <div class="col-md-2">
+                            <div class="col-md-1">
                                 <button class="btn btn-primary w-100" type="submit" name="action" value="cron_save">Add</button>
                             </div>
                         </div>
@@ -554,15 +580,24 @@ $activity = array_reverse($_SESSION['admin_activity'] ?? []);
                                 <input type="hidden" name="csrf" value="<?php echo h($csrf); ?>">
                                 <input type="hidden" name="id" value="<?php echo h($job['id']); ?>">
                                 <div class="row g-2 align-items-end">
-                                    <div class="col-lg-3">
+                                    <div class="col-lg-2">
                                         <label class="form-label" for="cron_name_<?php echo h($job['id']); ?>">Name</label>
                                         <input class="form-control" id="cron_name_<?php echo h($job['id']); ?>" name="name" value="<?php echo h($job['name']); ?>" required>
                                     </div>
-                                    <div class="col-lg-3">
+                                    <div class="col-lg-2">
                                         <label class="form-label" for="cron_task_<?php echo h($job['id']); ?>">Task</label>
                                         <select class="form-select" id="cron_task_<?php echo h($job['id']); ?>" name="task">
                                             <?php foreach ($cronTaskOptions as $taskKey => $taskLabel): ?>
                                                 <option value="<?php echo h($taskKey); ?>" <?php echo $job['task'] === $taskKey ? 'selected' : ''; ?>><?php echo h($taskLabel); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                    <div class="col-lg-3">
+                                        <label class="form-label" for="cron_station_<?php echo h($job['id']); ?>">Station</label>
+                                        <select class="form-select" id="cron_station_<?php echo h($job['id']); ?>" name="station">
+                                            <option value="all">All stations</option>
+                                            <?php foreach ($stationOptions as $station): ?>
+                                                <option value="<?php echo (int)$station['id']; ?>" <?php echo (string)($job['station'] ?? '') === (string)$station['id'] ? 'selected' : ''; ?>><?php echo h($station['label']); ?></option>
                                             <?php endforeach; ?>
                                         </select>
                                     </div>
@@ -576,7 +611,7 @@ $activity = array_reverse($_SESSION['admin_activity'] ?? []);
                                             <label class="form-check-label" for="cron_enabled_<?php echo h($job['id']); ?>">On</label>
                                         </div>
                                     </div>
-                                    <div class="col-lg-3">
+                                    <div class="col-lg-2">
                                         <div class="btn-group w-100" role="group">
                                             <button class="btn btn-outline-primary" type="submit" name="action" value="cron_save">Save</button>
                                             <button class="btn btn-outline-success" type="submit" name="action" value="cron_run">Run</button>
@@ -585,6 +620,8 @@ $activity = array_reverse($_SESSION['admin_activity'] ?? []);
                                     </div>
                                 </div>
                                 <div class="cron-meta small text-muted mt-2">
+                                    Station:
+                                    <?php echo h(($job['station'] ?? null) ? ((KnmiStationCatalog::name((int)$job['station']) ?: 'Station') . ' (' . (int)$job['station'] . ')') : 'All stations'); ?>,
                                     Last run: <?php echo h($job['last_run_at'] ?: '-'); ?>,
                                     status:
                                     <span class="badge bg-<?php echo ($job['last_status'] ?? '') === 'success' ? 'success' : (($job['last_status'] ?? '') === 'failed' ? 'danger' : 'secondary'); ?>">

@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/KnmiStationCatalog.php';
+
 class CronScheduleService {
     private $db;
     private $dataService;
@@ -28,6 +30,7 @@ class CronScheduleService {
         $id = isset($data['id']) ? (int)$data['id'] : 0;
         $name = trim((string)($data['name'] ?? ''));
         $task = (string)($data['task'] ?? '');
+        $station = $this->normalizeStation($data['station'] ?? null);
         $schedule = $this->normalizeSchedule((string)($data['schedule'] ?? ''));
         $enabled = !empty($data['enabled']) ? 1 : 0;
 
@@ -48,6 +51,7 @@ class CronScheduleService {
                 UPDATE knmi_cron_jobs
                 SET name = :name,
                     task = :task,
+                    station = :station,
                     schedule = :schedule,
                     enabled = :enabled,
                     updated_at = NOW()
@@ -56,6 +60,7 @@ class CronScheduleService {
             $stmt->execute([
                 ':name' => $name,
                 ':task' => $task,
+                ':station' => $station,
                 ':schedule' => $schedule,
                 ':enabled' => $enabled,
                 ':id' => $id
@@ -66,13 +71,14 @@ class CronScheduleService {
 
         $stmt = $this->db->prepare('
             INSERT INTO knmi_cron_jobs
-                (name, task, schedule, enabled, created_at, updated_at)
+                (name, task, station, schedule, enabled, created_at, updated_at)
             VALUES
-                (:name, :task, :schedule, :enabled, NOW(), NOW())
+                (:name, :task, :station, :schedule, :enabled, NOW(), NOW())
         ');
         $stmt->execute([
             ':name' => $name,
             ':task' => $task,
+            ':station' => $station,
             ':schedule' => $schedule,
             ':enabled' => $enabled
         ]);
@@ -124,6 +130,7 @@ class CronScheduleService {
                 id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
                 name VARCHAR(120) NOT NULL,
                 task VARCHAR(40) NOT NULL,
+                station INT NULL,
                 schedule VARCHAR(40) NOT NULL,
                 enabled TINYINT(1) NOT NULL DEFAULT 0,
                 last_run_at DATETIME NULL,
@@ -135,6 +142,17 @@ class CronScheduleService {
                 INDEX last_run_at (last_run_at)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         ');
+
+        $this->ensureStationColumn();
+    }
+
+    private function ensureStationColumn(): void {
+        $stmt = $this->db->query("SHOW COLUMNS FROM knmi_cron_jobs LIKE 'station'");
+        if ($stmt && $stmt->fetchColumn()) {
+            return;
+        }
+
+        $this->db->exec('ALTER TABLE knmi_cron_jobs ADD station INT NULL AFTER task');
     }
 
     private function seedDefaultJob(): void {
@@ -160,22 +178,25 @@ class CronScheduleService {
         $now = $now ?: new DateTimeImmutable('now');
         $messages = [];
         $success = false;
+        $station = isset($job['station']) && $job['station'] !== null && $job['station'] !== ''
+            ? (int)$job['station']
+            : null;
 
         try {
             if ($job['task'] === 'download_import') {
-                $download = $this->dataService->downloadDailyData();
+                $download = $this->dataService->downloadDailyData($station);
                 $messages = array_merge($messages, $download['messages'] ?? []);
                 if ($download['success'] ?? false) {
-                    $import = $this->dataService->importDailyData($this->db);
+                    $import = $this->dataService->importDailyData($this->db, $station);
                     $success = (bool)($import['success'] ?? false);
                     $messages = array_merge($messages, $import['messages'] ?? []);
                 }
             } elseif ($job['task'] === 'download') {
-                $result = $this->dataService->downloadDailyData();
+                $result = $this->dataService->downloadDailyData($station);
                 $success = (bool)($result['success'] ?? false);
                 $messages = $result['messages'] ?? [];
             } elseif ($job['task'] === 'import') {
-                $result = $this->dataService->importDailyData($this->db);
+                $result = $this->dataService->importDailyData($this->db, $station);
                 $success = (bool)($result['success'] ?? false);
                 $messages = $result['messages'] ?? [];
             } else {
@@ -221,6 +242,18 @@ class CronScheduleService {
         ];
 
         return $aliases[$schedule] ?? $schedule;
+    }
+
+    private function normalizeStation($station): ?int {
+        if ($station === null || $station === '' || $station === 'all') {
+            return null;
+        }
+
+        if (!is_numeric($station) || !KnmiStationCatalog::exists((int)$station)) {
+            throw new InvalidArgumentException('Unknown KNMI station.');
+        }
+
+        return (int)$station;
     }
 
     private function isValidSchedule(string $schedule): bool {

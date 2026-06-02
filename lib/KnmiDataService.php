@@ -6,6 +6,7 @@ class KnmiDataService {
     public const STATION = KnmiStationCatalog::DEFAULT_STATION;
     public const DATA_URL_TEMPLATE = 'https://cdn.knmi.nl/knmi/map/page/klimatologie/gegevens/daggegevens/etmgeg_%d.zip';
     public const DATA_SCRIPT_URL = 'https://www.daggegevens.knmi.nl/klimatologie/daggegevens';
+    private const IMPORT_BATCH_SIZE = 1000;
 
     private $rootDir;
 
@@ -33,13 +34,13 @@ class KnmiDataService {
         return KnmiStationCatalog::ids();
     }
 
-    public function downloadDailyData(): array {
+    public function downloadDailyData(?int $station = null): array {
         $messages = [];
         $files = [];
         $failed = 0;
 
-        foreach ($this->getStationIds() as $station) {
-            $result = $this->downloadStationDailyData((int)$station);
+        foreach ($this->stationIdsFor($station) as $stationId) {
+            $result = $this->downloadStationDailyData($stationId);
             $messages = array_merge($messages, $result['messages'] ?? []);
             $files = array_merge($files, $result['files'] ?? []);
 
@@ -52,7 +53,7 @@ class KnmiDataService {
             'success' => $failed === 0,
             'messages' => $messages,
             'files' => array_values(array_unique($files)),
-            'file_info' => $this->getDataFileInfo()
+            'file_info' => $this->getDataFileInfo($station)
         ];
     }
 
@@ -74,7 +75,7 @@ class KnmiDataService {
                     'success' => true,
                     'messages' => $fallback['messages'] ?? [],
                     'files' => [basename($dataFile)],
-                    'file_info' => $this->getDataFileInfo()
+                    'file_info' => $this->getDataFileInfo($station)
                 ];
             }
 
@@ -96,7 +97,7 @@ class KnmiDataService {
                     'success' => true,
                     'messages' => array_merge($messages, $extract['messages'] ?? [], $fallback['messages'] ?? []),
                     'files' => [basename($dataFile)],
-                    'file_info' => $this->getDataFileInfo()
+                    'file_info' => $this->getDataFileInfo($station)
                 ];
             }
 
@@ -113,59 +114,44 @@ class KnmiDataService {
             'success' => true,
             'messages' => $messages,
             'files' => $extract['files'] ?? [],
-            'file_info' => $this->getDataFileInfo()
+            'file_info' => $this->getDataFileInfo($station)
         ];
     }
 
-    public function importDailyData(PDO $db): array {
-        $availableFiles = $this->getAvailableStationFiles();
+    public function importDailyData(PDO $db, ?int $station = null): array {
+        $availableFiles = $this->getAvailableStationFiles($station);
         if (!$availableFiles) {
             return $this->result(false, ['No KNMI station data files found. Download data before importing.']);
         }
 
         $this->ensureTable($db);
-        $existingDates = $this->getExistingDates($db);
-        $rows = $this->readRowsMissingFromDatabase($existingDates);
-
-        if (!$rows) {
-            return [
-                'success' => true,
-                'messages' => ['No missing or new rows found.'],
-                'inserted' => 0,
-                'last_database_date' => $this->getLastDatabaseDate($db),
-                'file_info' => $this->getDataFileInfo()
-            ];
-        }
 
         $placeholders = '(' . implode(',', array_fill(0, count($this->columns), '?')) . ')';
-        $sql = 'INSERT INTO knmi (`' . implode('`,`', $this->columns) . '`) VALUES ' . $placeholders;
+        $sql = 'INSERT IGNORE INTO knmi (`' . implode('`,`', $this->columns) . '`) VALUES ' . $placeholders;
         $stmt = $db->prepare($sql);
         $inserted = 0;
+        $messages = [];
 
-        $db->beginTransaction();
-        try {
-            foreach ($rows as $row) {
-                $stmt->execute(array_values($row));
-                $inserted++;
-            }
-            $db->commit();
-        } catch (Throwable $e) {
-            if ($db->inTransaction()) {
-                $db->rollBack();
-            }
-            throw $e;
+        foreach ($availableFiles as $stationId => $dataFile) {
+            $result = $this->importStationDailyData($db, $stmt, (int)$stationId, $dataFile);
+            $inserted += (int)($result['inserted'] ?? 0);
+            $messages = array_merge($messages, $result['messages'] ?? []);
+        }
+
+        if ($inserted === 0 && !$messages) {
+            $messages[] = 'No missing or new rows found.';
         }
 
         return [
             'success' => true,
-            'messages' => ['Imported ' . $inserted . ' missing/new row(s).'],
+            'messages' => $messages ?: ['No missing or new rows found.'],
             'inserted' => $inserted,
-            'last_database_date' => $this->getLastDatabaseDate($db),
-            'file_info' => $this->getDataFileInfo()
+            'last_database_date' => $this->getLastDatabaseDate($db, $station),
+            'file_info' => $this->getDataFileInfo($station)
         ];
     }
 
-    public function getDataFileInfo(): array {
+    public function getDataFileInfo(?int $station = null): array {
         $info = [
             'exists' => false,
             'path' => $this->rootDir,
@@ -176,11 +162,11 @@ class KnmiDataService {
             'files' => []
         ];
 
-        foreach ($this->getStationIds() as $station) {
-            $dataFile = $this->getStationDataFilePath((int)$station);
+        foreach ($this->stationIdsFor($station) as $stationId) {
+            $dataFile = $this->getStationDataFilePath($stationId);
             $fileInfo = [
-                'station' => (int)$station,
-                'station_name' => KnmiStationCatalog::name($station),
+                'station' => $stationId,
+                'station_name' => KnmiStationCatalog::name($stationId),
                 'exists' => is_file($dataFile),
                 'path' => $dataFile,
                 'modified_at' => null,
@@ -209,7 +195,7 @@ class KnmiDataService {
             $handle = fopen($dataFile, 'r');
             if ($handle) {
                 while (($line = fgets($handle)) !== false) {
-                    $row = $this->parseDataLine($line, (int)$station);
+                    $row = $this->parseDataLine($line, $stationId);
                     if (!$row) {
                         continue;
                     }
@@ -230,11 +216,11 @@ class KnmiDataService {
         return $info;
     }
 
-    public function getDataFileDates(): array {
+    public function getDataFileDates(?int $station = null, ?int $limit = null): array {
         $dates = [];
 
-        foreach ($this->getStationIds() as $station) {
-            $dataFile = $this->getStationDataFilePath((int)$station);
+        foreach ($this->stationIdsFor($station) as $stationId) {
+            $dataFile = $this->getStationDataFilePath($stationId);
             if (!is_file($dataFile)) {
                 continue;
             }
@@ -245,50 +231,108 @@ class KnmiDataService {
             }
 
             while (($line = fgets($handle)) !== false) {
-                $row = $this->parseDataLine($line, (int)$station);
+                $row = $this->parseDataLine($line, $stationId);
                 if (!$row) {
                     continue;
                 }
                 $dates[$row['stn'] . ':' . $row['yyyymmdd']] = $row['stn'] . ' ' . $row['yyyymmdd'];
+
+                if ($limit !== null && count($dates) >= $limit) {
+                    break;
+                }
             }
 
             fclose($handle);
+
+            if ($limit !== null && count($dates) >= $limit) {
+                break;
+            }
         }
 
         return array_values($dates);
     }
 
-    public function getMissingDates(PDO $db): array {
-        if (!$this->databaseTableExists($db)) {
-            return $this->getDataFileDates();
-        }
+    public function getMissingDateSummary(PDO $db, ?int $station = null, int $previewLimit = 8): array {
+        $preview = [];
+        $count = 0;
+        $tableExists = $this->databaseTableExists($db);
 
-        $existingDates = $this->getExistingDates($db);
-        $missingDates = [];
-
-        foreach ($this->getStationIds() as $station) {
-            $dataFile = $this->getStationDataFilePath((int)$station);
+        foreach ($this->stationIdsFor($station) as $stationId) {
+            $dataFile = $this->getStationDataFilePath($stationId);
             if (!is_file($dataFile)) {
                 continue;
             }
 
+            $existingDates = $tableExists ? $this->getExistingDatesForStation($db, $stationId) : [];
             $handle = fopen($dataFile, 'r');
             if (!$handle) {
                 continue;
             }
 
             while (($line = fgets($handle)) !== false) {
-                $row = $this->parseDataLine($line, (int)$station);
+                $row = $this->parseDataLine($line, $stationId);
                 if (!$row) {
                     continue;
                 }
 
-                if (!isset($existingDates[$row['stn']][$row['yyyymmdd']])) {
-                    $missingDates[] = $row['stn'] . ' ' . $row['yyyymmdd'];
+                if (isset($existingDates[$row['yyyymmdd']])) {
+                    continue;
+                }
+
+                $count++;
+                if (count($preview) < $previewLimit) {
+                    $preview[] = $row['stn'] . ' ' . $row['yyyymmdd'];
                 }
             }
 
             fclose($handle);
+        }
+
+        return [
+            'count' => $count,
+            'preview' => $preview
+        ];
+    }
+
+    public function getMissingDates(PDO $db, ?int $station = null, ?int $limit = null): array {
+        if (!$this->databaseTableExists($db)) {
+            return $this->getDataFileDates($station, $limit);
+        }
+
+        $missingDates = [];
+
+        foreach ($this->stationIdsFor($station) as $stationId) {
+            $dataFile = $this->getStationDataFilePath($stationId);
+            if (!is_file($dataFile)) {
+                continue;
+            }
+
+            $existingDates = $this->getExistingDatesForStation($db, $stationId);
+            $handle = fopen($dataFile, 'r');
+            if (!$handle) {
+                continue;
+            }
+
+            while (($line = fgets($handle)) !== false) {
+                $row = $this->parseDataLine($line, $stationId);
+                if (!$row) {
+                    continue;
+                }
+
+                if (!isset($existingDates[$row['yyyymmdd']])) {
+                    $missingDates[] = $row['stn'] . ' ' . $row['yyyymmdd'];
+                }
+
+                if ($limit !== null && count($missingDates) >= $limit) {
+                    break;
+                }
+            }
+
+            fclose($handle);
+
+            if ($limit !== null && count($missingDates) >= $limit) {
+                break;
+            }
         }
 
         return $missingDates;
@@ -542,6 +586,80 @@ class KnmiDataService {
         return $candidate;
     }
 
+    private function importStationDailyData(PDO $db, PDOStatement $stmt, int $station, string $dataFile): array {
+        $stationLabel = $this->stationLabel($station);
+        $existingDates = $this->getExistingDatesForStation($db, $station);
+        $inserted = 0;
+        $attempted = 0;
+        $batchCount = 0;
+
+        $handle = fopen($dataFile, 'r');
+        if (!$handle) {
+            return [
+                'success' => false,
+                'messages' => ['Could not read KNMI text data file for ' . $stationLabel . '.'],
+                'inserted' => 0
+            ];
+        }
+
+        $db->beginTransaction();
+        try {
+            while (($line = fgets($handle)) !== false) {
+                $row = $this->parseDataLine($line, $station);
+                if (!$row) {
+                    continue;
+                }
+
+                $date = $row['yyyymmdd'];
+                if (isset($existingDates[$date])) {
+                    continue;
+                }
+
+                $stmt->execute(array_values($row));
+                $inserted += $stmt->rowCount() > 0 ? 1 : 0;
+                $attempted++;
+                $batchCount++;
+                $existingDates[$date] = true;
+
+                if ($batchCount >= self::IMPORT_BATCH_SIZE) {
+                    $db->commit();
+                    $db->beginTransaction();
+                    $batchCount = 0;
+                }
+            }
+
+            $db->commit();
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            fclose($handle);
+            throw $e;
+        }
+
+        fclose($handle);
+
+        if ($attempted === 0) {
+            return [
+                'success' => true,
+                'messages' => ['No missing or new rows found for ' . $stationLabel . '.'],
+                'inserted' => 0
+            ];
+        }
+
+        $skipped = $attempted - $inserted;
+        $message = 'Imported ' . $inserted . ' missing/new row(s) for ' . $stationLabel . '.';
+        if ($skipped > 0) {
+            $message .= ' ' . $skipped . ' row(s) were skipped by database uniqueness checks.';
+        }
+
+        return [
+            'success' => true,
+            'messages' => [$message],
+            'inserted' => $inserted
+        ];
+    }
+
     private function readRowsMissingFromDatabase(array $existingDates): array {
         $rows = [];
 
@@ -594,6 +712,22 @@ class KnmiDataService {
                 $dates[$station] = [];
             }
             $dates[$station][$date] = true;
+        }
+
+        return $dates;
+    }
+
+    private function getExistingDatesForStation(PDO $db, int $station): array {
+        if (!$this->databaseTableExists($db)) {
+            return [];
+        }
+
+        $dates = [];
+        $stmt = $db->prepare('SELECT yyyymmdd FROM knmi WHERE stn = :station');
+        $stmt->execute([':station' => $station]);
+
+        while (($date = $stmt->fetchColumn()) !== false) {
+            $dates[(string)$date] = true;
         }
 
         return $dates;
@@ -679,7 +813,43 @@ class KnmiDataService {
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         ");
 
+        $this->dropLegacyDateUniqueIndexes($db);
         $this->ensureStationDateUniqueIndex($db);
+    }
+
+    private function dropLegacyDateUniqueIndexes(PDO $db): void {
+        $stmt = $db->query('SHOW INDEX FROM knmi');
+        if (!$stmt) {
+            return;
+        }
+
+        $indexes = [];
+        while (($row = $stmt->fetch(PDO::FETCH_ASSOC)) !== false) {
+            $keyName = (string)($row['Key_name'] ?? '');
+            if ($keyName === '' || $keyName === 'PRIMARY' || (int)($row['Non_unique'] ?? 1) !== 0) {
+                continue;
+            }
+
+            if (!isset($indexes[$keyName])) {
+                $indexes[$keyName] = [];
+            }
+
+            $indexes[$keyName][(int)($row['Seq_in_index'] ?? 0)] = (string)($row['Column_name'] ?? '');
+        }
+
+        foreach ($indexes as $keyName => $columns) {
+            ksort($columns);
+            $columns = array_values($columns);
+            if (count($columns) !== 1 || $columns[0] !== 'yyyymmdd') {
+                continue;
+            }
+
+            try {
+                $db->exec('ALTER TABLE knmi DROP INDEX `' . str_replace('`', '``', $keyName) . '`');
+            } catch (Throwable $e) {
+                error_log('Could not drop legacy yyyymmdd unique index ' . $keyName . ': ' . $e->getMessage());
+            }
+        }
     }
 
     private function ensureStationDateUniqueIndex(PDO $db): void {
@@ -699,17 +869,29 @@ class KnmiDataService {
         return $this->rootDir . '/etmgeg_' . $station . '.txt';
     }
 
-    private function getAvailableStationFiles(): array {
+    private function getAvailableStationFiles(?int $station = null): array {
         $files = [];
 
-        foreach ($this->getStationIds() as $station) {
-            $file = $this->getStationDataFilePath((int)$station);
+        foreach ($this->stationIdsFor($station) as $stationId) {
+            $file = $this->getStationDataFilePath($stationId);
             if (is_file($file)) {
-                $files[(int)$station] = $file;
+                $files[$stationId] = $file;
             }
         }
 
         return $files;
+    }
+
+    private function stationIdsFor(?int $station = null): array {
+        if ($station === null) {
+            return array_map('intval', $this->getStationIds());
+        }
+
+        if (!KnmiStationCatalog::exists($station)) {
+            throw new InvalidArgumentException('Unsupported KNMI station: ' . $station);
+        }
+
+        return [(int)$station];
     }
 
     private function stationLabel(int $station): string {
