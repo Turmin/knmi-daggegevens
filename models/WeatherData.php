@@ -397,7 +397,7 @@ class WeatherData {
     }
     
     private function convertRadiation($value) {
-        return $value !== null ? round($value / 1000, 1) : null; // Convert to kJ/cm²
+        return $value !== null ? (int)$value : null;
     }
     
     private function convertEvaporation($value) {

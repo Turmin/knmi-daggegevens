@@ -1436,7 +1436,7 @@ class WeatherApp {
     }
 
     formatRadiation(value) {
-        return value !== null && value !== undefined ? `${value}\u00a0kJ/cm\u00b2` : '--\u00a0kJ/cm\u00b2';
+        return value !== null && value !== undefined ? `${value}\u00a0J/cm\u00b2` : '--\u00a0J/cm\u00b2';
     }
 
     formatPercent(value) {

@@ -107,7 +107,7 @@ class ChartManager {
                                 } else if (type === 'pressure') {
                                     return `${context.dataset.label}: ${value} hPa`;
                                 } else if (type === 'radiation') {
-                                    return `${context.dataset.label}: ${value} kJ/cm²`;
+                                    return `${context.dataset.label}: ${value} J/cm²`;
                                 }
                                 return `${context.dataset.label}: ${value}`;
                             }

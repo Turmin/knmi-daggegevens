@@ -599,7 +599,7 @@ if ($initialWeatherJson === false) {
                                     <div class="d-flex justify-content-between align-items-center">
                                         <span class="metric-label" data-i18n="radiation">Globale straling</span>
                                         <span class="metric-value" id="primarySunRadiation">
-                                            <div class="loading-placeholder">-- kJ/cm²</div>
+                                            <div class="loading-placeholder">-- J/cm²</div>
                                         </span>
                                     </div>
                                 </div>
