@@ -381,6 +381,7 @@ small.text-muted {
     max-width: none;
     min-width: 0;
     overflow-wrap: normal;
+    justify-self: end;
     white-space: nowrap;
     word-break: normal;
 }
@@ -1389,13 +1390,13 @@ a {
 
 @media (max-width: 420px) {
     .weather-metric .d-flex {
-        align-items: flex-start !important;
-        gap: 0.25rem;
-        grid-template-columns: 1fr;
+        align-items: center !important;
+        gap: 0.45rem;
+        grid-template-columns: minmax(0, 1fr) max-content;
     }
 
     .metric-value {
-        text-align: left;
+        text-align: right;
     }
 }
 
