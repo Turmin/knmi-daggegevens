@@ -1,16 +1,18 @@
 # KNMI Weather Data API
 
-This project exposes historical KNMI daily weather data through `api/weather.php`.
+This project exposes historical KNMI daily weather data through `/api/weather`.
 All API responses are JSON.
 
 ## Base URL
 
 ```text
-/api/weather.php
+/api/weather
 ```
 
 If the application is installed in a subdirectory, prefix the examples with that
 directory.
+
+The underlying PHP file remains available as `/api/weather.php`.
 
 ## Response Envelope
 
@@ -41,17 +43,67 @@ Error responses use this shape:
 
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
-| `station` | integer | `260` | KNMI station number. The UI defaults to De Bilt. |
+| `station` | integer | `260` | Supported KNMI station number. Use `/api/weather/stations` to list them. The UI defaults to De Bilt. |
 
 Dates must use `YYYY-MM-DD`.
 
+Supported stations:
+
+| Code | Station |
+| --- | --- |
+| `235` | De Kooy Airport |
+| `240` | Schiphol Airport |
+| `260` | De Bilt |
+| `270` | Leeuwarden Airport |
+| `275` | Deelen Airport |
+| `277` | Lauwersoog |
+| `280` | Groningen Airport Eelde |
+| `286` | Nieuw Beerta |
+| `290` | Twenthe Airport |
+| `310` | Vlissingen |
+| `319` | Westdorpe |
+| `344` | Rotterdam Airport |
+| `348` | Cabauw |
+| `350` | Gilze-Rijen Airport |
+| `370` | Eindhoven Airport |
+| `380` | Maastricht Airport |
+
+## Rate Limit
+
+The API is rate limited per client before a database connection is opened.
+The default limit is `120` requests per `60` seconds.
+
+Responses include:
+
+| Header | Description |
+| --- | --- |
+| `X-RateLimit-Limit` | Maximum requests in the current window. |
+| `X-RateLimit-Remaining` | Requests left in the current window. |
+| `X-RateLimit-Reset` | Unix timestamp when the current window resets. |
+| `Retry-After` | Seconds to wait; only sent with `429` responses. |
+
+The defaults can be changed with environment variables:
+
+| Variable | Default |
+| --- | --- |
+| `KNMI_API_RATE_LIMIT_REQUESTS` | `120` |
+| `KNMI_API_RATE_LIMIT_WINDOW_SECONDS` | `60` |
+
 ## Endpoints
+
+### List Supported Stations
+
+```http
+GET /api/weather/stations
+```
+
+Returns the supported KNMI stations and the default station.
 
 ### Get One Day
 
 ```http
-GET /api/weather.php/day?date=2024-01-15
-GET /api/weather.php/day?date=2024-01-15&station=260
+GET /api/weather/day?date=2024-01-15
+GET /api/weather/day?date=2024-01-15&station=260
 ```
 
 Required parameters:
@@ -69,7 +121,7 @@ Returns one weather record with:
 | `temperature` | Average, minimum, maximum, ground minimum, and related hour/period values. Temperatures are Celsius. |
 | `wind` | Direction, direction degrees, vector/average/min/max/gust speeds, Beaufort data, and related hour values. Speeds are km/h. |
 | `precipitation` | Amount, duration, maximum hourly amount, and maximum-hour value. Amounts are mm, durations are hours. |
-| `sunshine` | Sunshine duration, percentage, and global radiation. |
+| `sunshine` | Sunshine duration, percentage, and global radiation in J/cm². |
 | `pressure` | Average, minimum, maximum, and related hour values in hPa. |
 | `visibility` | Minimum, maximum, and related hour values. |
 | `humidity` | Average, minimum, maximum, and related hour values. |
@@ -82,13 +134,14 @@ Possible errors:
 | --- | --- |
 | `400` | `Date parameter required` |
 | `400` | `Invalid date format. Use YYYY-MM-DD` |
+| `400` | `Unsupported station` |
 | `404` | `No data found for the specified date` |
 
 ### Get a Period
 
 ```http
-GET /api/weather.php/period?start=2024-01-01&end=2024-01-07
-GET /api/weather.php/period?start=2024-01-01&end=2024-01-07&station=260
+GET /api/weather/period?start=2024-01-01&end=2024-01-07
+GET /api/weather/period?start=2024-01-01&end=2024-01-07&station=260
 ```
 
 Required parameters:
@@ -107,6 +160,7 @@ Returns an array of chart-friendly records ordered by date:
 | `wind_speed` | Average wind speed in km/h. |
 | `rain_amount`, `rain_duration` | Precipitation amount in mm and duration in hours. |
 | `sun_duration` | Sunshine duration in hours. |
+| `radiation` | Global radiation in J/cm². |
 | `pressure` | Average pressure in hPa. |
 
 Possible errors:
@@ -119,8 +173,8 @@ Possible errors:
 ### Get Monthly Statistics
 
 ```http
-GET /api/weather.php/stats?year=2024&month=1
-GET /api/weather.php/stats?year=2024&month=1&station=260
+GET /api/weather/stats?year=2024&month=1
+GET /api/weather/stats?year=2024&month=1&station=260
 ```
 
 Required parameters:
@@ -153,8 +207,8 @@ Possible errors:
 ### Get Available Date Range
 
 ```http
-GET /api/weather.php/range
-GET /api/weather.php/range?station=260
+GET /api/weather/range
+GET /api/weather/range?station=260
 ```
 
 Returns:
@@ -167,13 +221,13 @@ Returns:
 ## Other Requests
 
 ```http
-GET /api/weather.php
+GET /api/weather
 ```
 
 Returns `400` with `Endpoint required`. Use one of the endpoint paths above.
 
 ```http
-OPTIONS /api/weather.php
+OPTIONS /api/weather
 ```
 
 Used for CORS preflight requests. The API returns `200` without a JSON body.
@@ -192,3 +246,22 @@ Unsupported HTTP methods return:
 ```
 
 Unknown endpoints return `404` with `Endpoint not found`.
+
+Rate limited requests return:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": 429,
+    "message": "Rate limit exceeded. Try again later."
+  },
+  "rate_limit": {
+    "limit": 120,
+    "remaining": 0,
+    "reset": 1780400000,
+    "retry_after": 42
+  },
+  "timestamp": "2026-06-02T10:00:00+02:00"
+}
+```

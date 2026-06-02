@@ -14,6 +14,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
+require_once __DIR__ . '/../lib/ApiRateLimiter.php';
+require_once __DIR__ . '/../lib/KnmiStationCatalog.php';
+
+if (!function_exists('apiRateLimitConfig')) {
+    function apiRateLimitConfig(string $name, int $fallback): int {
+        $value = getenv($name);
+        return is_numeric($value) && (int)$value > 0 ? (int)$value : $fallback;
+    }
+}
+
+if (!function_exists('sendRateLimitHeaders')) {
+    function sendRateLimitHeaders(array $rateLimit): void {
+        header('X-RateLimit-Limit: ' . $rateLimit['limit']);
+        header('X-RateLimit-Remaining: ' . $rateLimit['remaining']);
+        header('X-RateLimit-Reset: ' . $rateLimit['reset']);
+
+        if (!$rateLimit['allowed']) {
+            header('Retry-After: ' . $rateLimit['retry_after']);
+        }
+    }
+}
+
+$rateLimiter = new ApiRateLimiter(
+    null,
+    apiRateLimitConfig('KNMI_API_RATE_LIMIT_REQUESTS', 120),
+    apiRateLimitConfig('KNMI_API_RATE_LIMIT_WINDOW_SECONDS', 60)
+);
+$rateLimit = $rateLimiter->check(ApiRateLimiter::clientIdentifierFromServer($_SERVER));
+sendRateLimitHeaders($rateLimit);
+
+if (!$rateLimit['allowed']) {
+    http_response_code(429);
+    echo json_encode([
+        'success' => false,
+        'error' => [
+            'code' => 429,
+            'message' => 'Rate limit exceeded. Try again later.'
+        ],
+        'rate_limit' => [
+            'limit' => $rateLimit['limit'],
+            'remaining' => $rateLimit['remaining'],
+            'reset' => $rateLimit['reset'],
+            'retry_after' => $rateLimit['retry_after']
+        ],
+        'timestamp' => date('c')
+    ], JSON_PRETTY_PRINT);
+    exit;
+}
+
 require_once __DIR__ . '/../config/Database.php';
 require_once __DIR__ . '/../models/WeatherData.php';
 require_once __DIR__ . '/../models/WeatherClimateStats.php';
@@ -23,6 +72,13 @@ class WeatherAPI {
     private $climateStats;
     
     public function __construct() {
+    }
+
+    private function ensureDataServices(): void {
+        if ($this->weatherData && $this->climateStats) {
+            return;
+        }
+
         try {
             $database = new Database();
             $db = $database->connect();
@@ -104,6 +160,9 @@ class WeatherAPI {
             case 'range':
                 $this->getDateRange();
                 break;
+            case 'stations':
+                $this->getStations();
+                break;
             case 'calendar-day':
             case 'climate-day':
                 $this->getCalendarDayStats();
@@ -115,7 +174,10 @@ class WeatherAPI {
     
     private function getDay() {
         $date = $_GET['date'] ?? null;
-        $station = $_GET['station'] ?? 260;
+        $station = $this->getStationParameter();
+        if ($station === null) {
+            return;
+        }
         
         if (!$date) {
             $this->sendError(400, "Date parameter required");
@@ -126,6 +188,8 @@ class WeatherAPI {
             $this->sendError(400, "Invalid date format. Use YYYY-MM-DD");
             return;
         }
+
+        $this->ensureDataServices();
         
         $data = $this->weatherData->getDataByDate($date, $station);
         
@@ -139,7 +203,10 @@ class WeatherAPI {
     private function getPeriod() {
         $startDate = $_GET['start'] ?? null;
         $endDate = $_GET['end'] ?? null;
-        $station = $_GET['station'] ?? 260;
+        $station = $this->getStationParameter();
+        if ($station === null) {
+            return;
+        }
         
         if (!$startDate || !$endDate) {
             $this->sendError(400, "Start and end date parameters required");
@@ -150,6 +217,8 @@ class WeatherAPI {
             $this->sendError(400, "Invalid date format. Use YYYY-MM-DD");
             return;
         }
+
+        $this->ensureDataServices();
         
         $data = $this->weatherData->getDataForPeriod($startDate, $endDate, $station);
         $this->sendSuccess($data);
@@ -158,7 +227,10 @@ class WeatherAPI {
     private function getStats() {
         $year = $_GET['year'] ?? null;
         $month = $_GET['month'] ?? null;
-        $station = $_GET['station'] ?? 260;
+        $station = $this->getStationParameter();
+        if ($station === null) {
+            return;
+        }
         
         if (!$year || !$month) {
             $this->sendError(400, "Year and month parameters required");
@@ -169,20 +241,38 @@ class WeatherAPI {
             $this->sendError(400, "Invalid year or month");
             return;
         }
+
+        $this->ensureDataServices();
         
         $data = $this->weatherData->getMonthlyStats($year, $month, $station);
         $this->sendSuccess($data);
     }
     
     private function getDateRange() {
-        $station = $_GET['station'] ?? 260;
+        $station = $this->getStationParameter();
+        if ($station === null) {
+            return;
+        }
+
+        $this->ensureDataServices();
+
         $data = $this->weatherData->getDateRange($station);
         $this->sendSuccess($data);
     }
 
+    private function getStations() {
+        $this->sendSuccess([
+            'default' => KnmiStationCatalog::DEFAULT_STATION,
+            'stations' => KnmiStationCatalog::all()
+        ]);
+    }
+
     private function getCalendarDayStats() {
         $date = $_GET['date'] ?? null;
-        $station = $_GET['station'] ?? 260;
+        $station = $this->getStationParameter();
+        if ($station === null) {
+            return;
+        }
 
         if (!$date) {
             $this->sendError(400, "Date parameter required");
@@ -193,6 +283,8 @@ class WeatherAPI {
             $this->sendError(400, "Invalid date format. Use YYYY-MM-DD");
             return;
         }
+
+        $this->ensureDataServices();
 
         $data = $this->climateStats->getCalendarDayStats($date, $station);
 
@@ -206,6 +298,23 @@ class WeatherAPI {
     private function validateDate($date) {
         $d = DateTime::createFromFormat('Y-m-d', $date);
         return $d && $d->format('Y-m-d') === $date;
+    }
+
+    private function getStationParameter(): ?int {
+        $station = $_GET['station'] ?? KnmiStationCatalog::DEFAULT_STATION;
+
+        if (!is_numeric($station)) {
+            $this->sendError(400, "Invalid station parameter");
+            return null;
+        }
+
+        $station = (int)$station;
+        if (!KnmiStationCatalog::exists($station)) {
+            $this->sendError(400, "Unsupported station");
+            return null;
+        }
+
+        return $station;
     }
     
     private function sendSuccess($data) {

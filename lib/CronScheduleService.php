@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/KnmiStationCatalog.php';
+
 class CronScheduleService {
     private $db;
     private $dataService;
@@ -19,6 +21,60 @@ class CronScheduleService {
         ];
     }
 
+    public static function describeSchedule(string $schedule): string {
+        $schedule = trim(preg_replace('/\s+/', ' ', $schedule));
+        $aliases = [
+            '@hourly' => '0 * * * *',
+            '@daily' => '15 8 * * *',
+            '@weekly' => '15 8 * * 1',
+            '@monthly' => '15 8 1 * *'
+        ];
+        $schedule = $aliases[$schedule] ?? $schedule;
+        $parts = explode(' ', $schedule);
+
+        if (count($parts) !== 5) {
+            return 'Invalid cron expression.';
+        }
+
+        if (!self::isValidScheduleParts($parts)) {
+            return 'Invalid cron expression.';
+        }
+
+        [$minute, $hour, $day, $month, $weekday] = $parts;
+        if ($minute === '*' && $hour === '*' && $day === '*' && $month === '*' && $weekday === '*') {
+            return 'Every minute.';
+        }
+
+        if (preg_match('/^\*\/(\d+)$/', $minute, $match) && $hour === '*' && $day === '*' && $month === '*' && $weekday === '*') {
+            return 'Every ' . (int)$match[1] . ' minutes.';
+        }
+
+        $sentence = self::describeTimeFields($minute, $hour);
+        $details = [];
+
+        if ($weekday !== '*' && !self::isEveryWeekdayField($weekday)) {
+            $details[] = 'on ' . self::describeField($weekday, self::weekdayNames());
+        }
+
+        if ($day !== '*') {
+            $details[] = 'on day ' . self::describeField($day) . ' of the month';
+        }
+
+        if ($month !== '*') {
+            $details[] = self::describeMonthField($month);
+        }
+
+        if (!$details && preg_match('/^at \d{2}:\d{2}$/', $sentence)) {
+            $sentence .= ' every day';
+        }
+
+        if ($details) {
+            $sentence .= ' ' . implode(' ', $details);
+        }
+
+        return ucfirst($sentence) . '.';
+    }
+
     public function listJobs(): array {
         $stmt = $this->db->query('SELECT * FROM knmi_cron_jobs ORDER BY enabled DESC, name ASC');
         return $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
@@ -28,6 +84,7 @@ class CronScheduleService {
         $id = isset($data['id']) ? (int)$data['id'] : 0;
         $name = trim((string)($data['name'] ?? ''));
         $task = (string)($data['task'] ?? '');
+        $station = $this->normalizeStation($data['station'] ?? null);
         $schedule = $this->normalizeSchedule((string)($data['schedule'] ?? ''));
         $enabled = !empty($data['enabled']) ? 1 : 0;
 
@@ -48,6 +105,7 @@ class CronScheduleService {
                 UPDATE knmi_cron_jobs
                 SET name = :name,
                     task = :task,
+                    station = :station,
                     schedule = :schedule,
                     enabled = :enabled,
                     updated_at = NOW()
@@ -56,6 +114,7 @@ class CronScheduleService {
             $stmt->execute([
                 ':name' => $name,
                 ':task' => $task,
+                ':station' => $station,
                 ':schedule' => $schedule,
                 ':enabled' => $enabled,
                 ':id' => $id
@@ -66,13 +125,14 @@ class CronScheduleService {
 
         $stmt = $this->db->prepare('
             INSERT INTO knmi_cron_jobs
-                (name, task, schedule, enabled, created_at, updated_at)
+                (name, task, station, schedule, enabled, created_at, updated_at)
             VALUES
-                (:name, :task, :schedule, :enabled, NOW(), NOW())
+                (:name, :task, :station, :schedule, :enabled, NOW(), NOW())
         ');
         $stmt->execute([
             ':name' => $name,
             ':task' => $task,
+            ':station' => $station,
             ':schedule' => $schedule,
             ':enabled' => $enabled
         ]);
@@ -124,6 +184,7 @@ class CronScheduleService {
                 id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
                 name VARCHAR(120) NOT NULL,
                 task VARCHAR(40) NOT NULL,
+                station INT NULL,
                 schedule VARCHAR(40) NOT NULL,
                 enabled TINYINT(1) NOT NULL DEFAULT 0,
                 last_run_at DATETIME NULL,
@@ -135,6 +196,17 @@ class CronScheduleService {
                 INDEX last_run_at (last_run_at)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         ');
+
+        $this->ensureStationColumn();
+    }
+
+    private function ensureStationColumn(): void {
+        $stmt = $this->db->query("SHOW COLUMNS FROM knmi_cron_jobs LIKE 'station'");
+        if ($stmt && $stmt->fetchColumn()) {
+            return;
+        }
+
+        $this->db->exec('ALTER TABLE knmi_cron_jobs ADD station INT NULL AFTER task');
     }
 
     private function seedDefaultJob(): void {
@@ -160,22 +232,25 @@ class CronScheduleService {
         $now = $now ?: new DateTimeImmutable('now');
         $messages = [];
         $success = false;
+        $station = isset($job['station']) && $job['station'] !== null && $job['station'] !== ''
+            ? (int)$job['station']
+            : null;
 
         try {
             if ($job['task'] === 'download_import') {
-                $download = $this->dataService->downloadDailyData();
+                $download = $this->dataService->downloadDailyData($station);
                 $messages = array_merge($messages, $download['messages'] ?? []);
                 if ($download['success'] ?? false) {
-                    $import = $this->dataService->importDailyData($this->db);
+                    $import = $this->dataService->importDailyData($this->db, $station);
                     $success = (bool)($import['success'] ?? false);
                     $messages = array_merge($messages, $import['messages'] ?? []);
                 }
             } elseif ($job['task'] === 'download') {
-                $result = $this->dataService->downloadDailyData();
+                $result = $this->dataService->downloadDailyData($station);
                 $success = (bool)($result['success'] ?? false);
                 $messages = $result['messages'] ?? [];
             } elseif ($job['task'] === 'import') {
-                $result = $this->dataService->importDailyData($this->db);
+                $result = $this->dataService->importDailyData($this->db, $station);
                 $success = (bool)($result['success'] ?? false);
                 $messages = $result['messages'] ?? [];
             } else {
@@ -223,22 +298,17 @@ class CronScheduleService {
         return $aliases[$schedule] ?? $schedule;
     }
 
-    private function isValidSchedule(string $schedule): bool {
-        $parts = explode(' ', $schedule);
-        if (count($parts) !== 5) {
-            return false;
-        }
-
+    private static function isValidScheduleParts(array $parts): bool {
         $ranges = [
             [0, 59],
             [0, 23],
             [1, 31],
             [1, 12],
-            [0, 7]
+            [0, 6]
         ];
 
         foreach ($parts as $index => $part) {
-            if (!$this->isValidCronField($part, $ranges[$index][0], $ranges[$index][1])) {
+            if (!self::isValidFieldPart($part, $ranges[$index][0], $ranges[$index][1])) {
                 return false;
             }
         }
@@ -246,8 +316,12 @@ class CronScheduleService {
         return true;
     }
 
-    private function isValidCronField(string $field, int $min, int $max): bool {
+    private static function isValidFieldPart(string $field, int $min, int $max): bool {
         foreach (explode(',', $field) as $segment) {
+            if ($segment === '') {
+                return false;
+            }
+
             if ($segment === '*') {
                 continue;
             }
@@ -282,6 +356,212 @@ class CronScheduleService {
         return true;
     }
 
+    private static function isEveryWeekdayField(string $field): bool {
+        if ($field === '*/1' || $field === '0-6') {
+            return true;
+        }
+
+        $days = [];
+        foreach (explode(',', $field) as $segment) {
+            if (!ctype_digit($segment)) {
+                return false;
+            }
+
+            $day = (int)$segment;
+            if ($day < 0 || $day > 6) {
+                return false;
+            }
+
+            $days[$day] = true;
+        }
+
+        for ($day = 0; $day <= 6; $day++) {
+            if (empty($days[$day])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static function describeTimeFields(string $minute, string $hour): string {
+        if ($minute === '*') {
+            if ($hour === '*') {
+                return 'every minute';
+            }
+
+            return 'every minute ' . self::describeHourWindow($hour);
+        }
+
+        if (ctype_digit($minute) && ctype_digit($hour)) {
+            return 'at ' . str_pad((string)(int)$hour, 2, '0', STR_PAD_LEFT) . ':' . str_pad((string)(int)$minute, 2, '0', STR_PAD_LEFT);
+        }
+
+        $sentence = 'at minute ' . self::describeField($minute) . ' past every hour';
+        if ($hour !== '*') {
+            $sentence .= ' ' . self::describeHourWindow($hour);
+        }
+
+        return $sentence;
+    }
+
+    private static function describeHourWindow(string $hour): string {
+        if (preg_match('/^(\d+)-(\d+)$/', $hour, $match)) {
+            return 'from ' . (int)$match[1] . ' through ' . (int)$match[2];
+        }
+
+        if (strpos($hour, ',') !== false) {
+            return 'at hours ' . self::describeField($hour);
+        }
+
+        if (preg_match('/^\*\/(\d+)$/', $hour, $match)) {
+            return 'every ' . (int)$match[1] . ' hours';
+        }
+
+        if (ctype_digit($hour)) {
+            return 'during hour ' . (int)$hour;
+        }
+
+        return 'when hour matches ' . $hour;
+    }
+
+    private static function describeField(string $field, array $names = []): string {
+        if ($field === '*') {
+            return 'every';
+        }
+
+        if (strpos($field, ',') !== false) {
+            $values = [];
+            foreach (explode(',', $field) as $value) {
+                $values[] = self::describeFieldSegment($value, $names);
+            }
+
+            return self::joinWords($values);
+        }
+
+        return self::describeFieldSegment($field, $names);
+    }
+
+    private static function describeFieldSegment(string $segment, array $names = []): string {
+        if (preg_match('/^\*\/(\d+)$/', $segment, $match)) {
+            return 'every ' . (int)$match[1];
+        }
+
+        if (preg_match('/^(\d+)-(\d+)$/', $segment, $match)) {
+            return self::fieldValue((int)$match[1], $names) . ' through ' . self::fieldValue((int)$match[2], $names);
+        }
+
+        return ctype_digit($segment) ? self::fieldValue((int)$segment, $names) : $segment;
+    }
+
+    private static function describeMonthField(string $field): string {
+        $segments = [];
+        $hasNamedMonth = false;
+
+        foreach (explode(',', $field) as $segment) {
+            if (preg_match('/^(\d+)-(\d+)$/', $segment, $match)) {
+                $segments[] = 'every month from ' . self::fieldValue((int)$match[1], self::monthNames()) . ' through ' . self::fieldValue((int)$match[2], self::monthNames());
+                continue;
+            }
+
+            if (preg_match('/^\*\/(\d+)$/', $segment, $match)) {
+                $segments[] = 'every ' . (int)$match[1] . ' months';
+                continue;
+            }
+
+            $segments[] = self::describeFieldSegment($segment, self::monthNames());
+            $hasNamedMonth = true;
+        }
+
+        $description = self::joinWords($segments);
+        return $hasNamedMonth ? 'in ' . $description : $description;
+    }
+
+    private static function fieldValue(int $value, array $names = []): string {
+        return $names[$value] ?? (string)$value;
+    }
+
+    private static function joinWords(array $values): string {
+        $values = array_values(array_filter($values, static function ($value) {
+            return $value !== '';
+        }));
+
+        if (count($values) <= 1) {
+            return $values[0] ?? '';
+        }
+
+        $last = array_pop($values);
+        return implode(', ', $values) . ' and ' . $last;
+    }
+
+    private static function monthNames(): array {
+        return [
+            1 => 'January',
+            2 => 'February',
+            3 => 'March',
+            4 => 'April',
+            5 => 'May',
+            6 => 'June',
+            7 => 'July',
+            8 => 'August',
+            9 => 'September',
+            10 => 'October',
+            11 => 'November',
+            12 => 'December'
+        ];
+    }
+
+    private static function weekdayNames(): array {
+        return [
+            0 => 'Sunday',
+            1 => 'Monday',
+            2 => 'Tuesday',
+            3 => 'Wednesday',
+            4 => 'Thursday',
+            5 => 'Friday',
+            6 => 'Saturday'
+        ];
+    }
+
+    private function normalizeStation($station): ?int {
+        if ($station === null || $station === '' || $station === 'all') {
+            return null;
+        }
+
+        if (!is_numeric($station) || !KnmiStationCatalog::exists((int)$station)) {
+            throw new InvalidArgumentException('Unknown KNMI station.');
+        }
+
+        return (int)$station;
+    }
+
+    private function isValidSchedule(string $schedule): bool {
+        $parts = explode(' ', $schedule);
+        if (count($parts) !== 5) {
+            return false;
+        }
+
+        $ranges = [
+            [0, 59],
+            [0, 23],
+            [1, 31],
+            [1, 12],
+            [0, 6]
+        ];
+
+        foreach ($parts as $index => $part) {
+            if (!$this->isValidCronField($part, $ranges[$index][0], $ranges[$index][1])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function isValidCronField(string $field, int $min, int $max): bool {
+        return self::isValidFieldPart($field, $min, $max);
+    }
+
     private function isDue(array $job, DateTimeImmutable $now): bool {
         if (!$this->scheduleMatches($job['schedule'], $now)) {
             return false;
@@ -301,6 +581,10 @@ class CronScheduleService {
             return false;
         }
 
+        if (!self::isValidScheduleParts($parts)) {
+            return false;
+        }
+
         $values = [
             (int)$date->format('i'),
             (int)$date->format('G'),
@@ -311,9 +595,6 @@ class CronScheduleService {
 
         foreach ($parts as $index => $field) {
             if (!$this->fieldMatches($field, $values[$index])) {
-                if ($index === 4 && $values[$index] === 0 && $this->fieldMatches($field, 7)) {
-                    continue;
-                }
                 return false;
             }
         }

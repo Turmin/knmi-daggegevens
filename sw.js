@@ -73,7 +73,7 @@ self.addEventListener('fetch', event => {
     }
 
     const requestUrl = new URL(event.request.url);
-    const isApiRequest = requestUrl.pathname.includes('/api/');
+    const isApiRequest = /\/api\/weather(?:\.php)?(?:\/|$)/.test(requestUrl.pathname);
     const isSameOrigin = requestUrl.origin === self.location.origin;
 
     if (isApiRequest) {
@@ -218,7 +218,10 @@ async function syncWeatherData() {
         const cache = await caches.open(CACHE_NAME);
         const keys = await cache.keys();
         
-        const apiKeys = keys.filter(key => key.url.includes('/api/'));
+        const apiKeys = keys.filter(key => {
+            const keyUrl = new URL(key.url);
+            return /\/api\/weather(?:\.php)?(?:\/|$)/.test(keyUrl.pathname);
+        });
         await Promise.all(apiKeys.map(key => cache.delete(key)));
         
         console.log('Service Worker: Weather data sync completed');

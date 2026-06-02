@@ -623,7 +623,8 @@ small.text-muted {
 }
 
 /* Form Styles */
-.form-control {
+.form-control,
+.form-select {
     border-radius: 8px;
     border: 2px solid var(--border-soft);
     transition: all 0.3s ease;
@@ -633,6 +634,7 @@ small.text-muted {
 }
 
 .date-navigation .form-control,
+.date-navigation .form-select,
 .date-navigation .input-group-text,
 .date-navigation .btn-custom,
 .comparison-toggle input[type="date"].form-control,
@@ -640,10 +642,21 @@ small.text-muted {
     min-height: 42px;
 }
 
+.date-navigation .btn-custom {
+    font-size: 0.84rem;
+    padding-left: 0.35rem;
+    padding-right: 0.35rem;
+}
+
 .date-navigation .form-control,
+.date-navigation .form-select,
 .comparison-toggle input[type="date"].form-control {
     padding-top: 0.45rem;
     padding-bottom: 0.45rem;
+}
+
+.station-select-group .form-select {
+    min-width: 0;
 }
 
 :root[data-theme="dark"] input[type="date"].form-control {
@@ -661,11 +674,13 @@ small.text-muted {
 }
 
 .form-control:disabled,
-.form-control[readonly] {
+.form-control[readonly],
+.form-select:disabled {
     background-color: var(--metric-bg);
 }
 
-.form-control:focus {
+.form-control:focus,
+.form-select:focus {
     border-color: var(--primary-blue);
     box-shadow: 0 0 0 0.2rem rgba(0, 102, 204, 0.25);
 }
@@ -845,6 +860,7 @@ a {
 }
 
 :root[data-theme="dark"] .form-control,
+:root[data-theme="dark"] .form-select,
 :root[data-theme="dark"] .input-group-text,
 :root[data-theme="dark"] .table {
     background-color: var(--surface-strong);

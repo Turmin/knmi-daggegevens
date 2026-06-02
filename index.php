@@ -2,6 +2,7 @@
 // index.php
 require_once 'config/Database.php';
 require_once 'models/WeatherData.php';
+require_once 'lib/KnmiStationCatalog.php';
 
 function h($value) {
     return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
@@ -189,6 +190,9 @@ function getDocumentLinks() {
 $requestedDate = getRequestedDate();
 $datePathFromRequest = getDatePathFromRequest();
 $weatherData = null;
+$defaultStation = KnmiStationCatalog::DEFAULT_STATION;
+$stations = KnmiStationCatalog::all();
+$defaultStationInfo = KnmiStationCatalog::default();
 
 // Initialize weather data
 try {
@@ -197,7 +201,7 @@ try {
     $weatherData = new WeatherData($db);
     
     // Get date range for navigation limits
-    $dateRange = $weatherData->getDateRange();
+    $dateRange = $weatherData->getDateRange($defaultStation);
     $firstDate = $dateRange['first_date'];
     $lastDate = $dateRange['last_date'];
     
@@ -235,7 +239,7 @@ if (
 $initialWeatherData = null;
 if ($weatherData instanceof WeatherData) {
     try {
-        $initialWeatherData = $weatherData->getDataByDate($defaultDate);
+        $initialWeatherData = $weatherData->getDataByDate($defaultDate, $defaultStation);
     } catch(Exception $e) {
         error_log("Initial weather data error: " . $e->getMessage());
     }
@@ -365,8 +369,8 @@ if ($initialWeatherJson === false) {
         <div class="row mb-4">
             <div class="col-12">
                 <div class="date-navigation">
-                    <div class="row g-3 align-items-center">
-                        <div class="col-md-5">
+                    <div class="row g-2 align-items-center">
+                        <div class="col-md-4 col-lg-4">
                             <div class="input-group">
                                 <span class="input-group-text">
                                     <i class="bi bi-calendar-date"></i>
@@ -379,16 +383,31 @@ if ($initialWeatherJson === false) {
                                        max="<?php echo $lastDate; ?>">
                             </div>
                         </div>
-                        <div class="col-md-7">
+                        <div class="col-md-4 col-lg-5">
+                            <div class="input-group station-select-group">
+                                <label class="input-group-text" for="stationSelect" title="Meetstation" data-i18n-title="stationSelect">
+                                    <i class="bi bi-geo-alt"></i>
+                                    <span class="visually-hidden" data-i18n="stationSelect">Meetstation</span>
+                                </label>
+                                <select class="form-select" id="stationSelect" aria-label="Meetstation" data-i18n-aria-label="stationSelect">
+                                    <?php foreach ($stations as $station): ?>
+                                        <option value="<?php echo (int)$station['id']; ?>"<?php echo (int)$station['id'] === $defaultStation ? ' selected' : ''; ?>>
+                                            <?php echo h($station['label']); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4 col-lg-3">
                             <div class="btn-group w-100 date-action-group" role="group" aria-label="Datum navigatie">
                                 <button type="button" class="btn btn-outline-primary btn-custom" id="prevDay" title="Vorige dag (Ctrl+←)" data-i18n-title="prevDay">
-                                    <i class="bi bi-chevron-left"></i> <span class="d-none d-sm-inline" data-i18n="prevDay">Vorige dag</span>
+                                    <i class="bi bi-chevron-left"></i> <span class="d-none d-sm-inline" data-i18n="prevDayShort">Vorige</span>
                                 </button>
                                 <button type="button" class="btn btn-outline-primary btn-custom" id="latestDay" title="Laatste dag (Ctrl+T)" data-i18n-title="latestDay">
-                                    <i class="bi bi-calendar-check"></i> <span class="d-none d-sm-inline" data-i18n="latestDay">Laatste dag</span>
+                                    <i class="bi bi-calendar-check"></i> <span class="d-none d-sm-inline" data-i18n="latestDayShort">Laatste</span>
                                 </button>
                                 <button type="button" class="btn btn-outline-primary btn-custom" id="nextDay" title="Volgende dag (Ctrl+→)" data-i18n-title="nextDay">
-                                    <span class="d-none d-sm-inline" data-i18n="nextDay">Volgende dag</span> <i class="bi bi-chevron-right"></i>
+                                    <span class="d-none d-sm-inline" data-i18n="nextDayShort">Volgende</span> <i class="bi bi-chevron-right"></i>
                                 </button>
                                 <!-- <button type="button" class="btn btn-outline-secondary btn-custom" id="refreshData" data-i18n-title="refresh" aria-label="Ververs data">
                                     <i class="bi bi-arrow-clockwise"></i>
@@ -461,7 +480,7 @@ if ($initialWeatherJson === false) {
                             <i class="bi bi-calendar-check me-2"></i>
                             <?php echo h($pageDate); ?>
                         </h1>
-                        <small data-i18n="station">Meetstation: De Bilt (260)</small>
+                        <small id="primaryStationLabel">Meetstation: <?php echo h($defaultStationInfo['label']); ?></small>
                     </div>
                     <div class="card-body p-4">
                         <!-- Temperature Section -->
@@ -595,6 +614,14 @@ if ($initialWeatherJson === false) {
                                         </span>
                                     </div>
                                 </div>
+                                <div class="weather-metric mt-2">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="metric-label" data-i18n="radiation">Globale straling</span>
+                                        <span class="metric-value" id="primarySunRadiation">
+                                            <div class="loading-placeholder">-- J/cm²</div>
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -663,7 +690,7 @@ if ($initialWeatherJson === false) {
                             <i class="bi bi-calendar-x me-2"></i>
                             <span class="loading-placeholder" data-i18n="comparisonDateLoading">Vergelijkingsdatum wordt geladen...</span>
                         </h3>
-                        <small data-i18n="comparisonStation">Vergelijking - Meetstation: De Bilt (260)</small>
+                        <small id="comparisonStationLabel">Vergelijking - Meetstation: <?php echo h($defaultStationInfo['label']); ?></small>
                     </div>
                     <div class="card-body p-4" id="comparisonContent">
                         <!-- Dynamic comparison content will be loaded here -->
@@ -722,6 +749,16 @@ if ($initialWeatherJson === false) {
                                 <input type="radio" class="btn-check" name="chartType" id="sunChart" autocomplete="off">
                                 <label class="btn btn-outline-light btn-sm" for="sunChart" title="Zonnesschijnverloop" data-i18n-title="chartSun">
                                     <i class="bi bi-sun me-1"></i><span data-i18n="chartSun">Zon</span>
+                                </label>
+
+                                <input type="radio" class="btn-check" name="chartType" id="pressureChart" autocomplete="off">
+                                <label class="btn btn-outline-light btn-sm" for="pressureChart" title="Luchtdrukverloop" data-i18n-title="chartPressure">
+                                    <i class="bi bi-speedometer2 me-1"></i><span data-i18n="chartPressure">Luchtdruk</span>
+                                </label>
+
+                                <input type="radio" class="btn-check" name="chartType" id="radiationChart" autocomplete="off">
+                                <label class="btn btn-outline-light btn-sm" for="radiationChart" title="Globale straling" data-i18n-title="chartRadiation">
+                                    <i class="bi bi-brightness-high me-1"></i><span data-i18n="chartRadiation">Straling</span>
                                 </label>
                             </div>
                         </div>
@@ -806,7 +843,7 @@ if ($initialWeatherJson === false) {
             <div class="col-12">
                 <div class="text-center text-muted">
                     <p class="small footer-data-range mb-2">
-                        <span data-i18n="stationShort">Meetstation De Bilt</span>
+                        <span id="footerStationLabel">Meetstation <?php echo h($defaultStationInfo['label']); ?></span>
                         <span class="footer-separator">•</span>
                         <span id="availableDataText" data-first-date="<?php echo h($firstDate); ?>" data-last-date="<?php echo h($lastDate); ?>">Beschikbare data: <?php echo h(date('d-m-Y', strtotime($firstDate))); ?> tot <?php echo h(date('d-m-Y', strtotime($lastDate))); ?></span>
                     </p>
@@ -920,10 +957,12 @@ if ($initialWeatherJson === false) {
 
     <!-- JavaScript Configuration -->
     <script>
-        const API_BASE_URL = 'api/weather.php';
+        const API_BASE_URL = 'api/weather';
         const FIRST_DATE = '<?php echo h($firstDate); ?>';
         const LAST_DATE = '<?php echo h($lastDate); ?>';
         const DEFAULT_DATE = '<?php echo h($defaultDate); ?>';
+        const DEFAULT_STATION = <?php echo (int)$defaultStation; ?>;
+        const KNMI_STATIONS = <?php echo json_encode($stations, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_NUMERIC_CHECK); ?>;
         const APP_BASE_PATH = '<?php echo h(appBasePath()); ?>';
         const SITE_BASE_URL = '<?php echo h(siteBaseUrl()); ?>';
         const INITIAL_PAGE_IS_DATE_PAGE = <?php echo $isHomeRequest ? 'false' : 'true'; ?>;

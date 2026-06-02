@@ -6,6 +6,11 @@ class WeatherApp {
         this.currentDate = this.parseAPIDate(DEFAULT_DATE);
         this.firstDate = FIRST_DATE;
         this.lastDate = LAST_DATE;
+        this.defaultStation = typeof DEFAULT_STATION !== 'undefined' ? Number(DEFAULT_STATION) : 260;
+        this.stations = Array.isArray(window.KNMI_STATIONS)
+            ? window.KNMI_STATIONS
+            : (Array.isArray(typeof KNMI_STATIONS !== 'undefined' ? KNMI_STATIONS : null) ? KNMI_STATIONS : []);
+        this.currentStation = this.getSavedStation();
         this.language = this.getSavedLanguage();
         this.theme = this.getSavedTheme();
         this.comparisonMode = false;
@@ -37,6 +42,7 @@ class WeatherApp {
         try {
             this.applyTheme(this.theme);
             this.applyTranslations();
+            this.updateStationControls();
             this.setupEventListeners();
             await this.hideLoadingScreen();
 
@@ -70,6 +76,27 @@ class WeatherApp {
         if (['light', 'dark'].includes(savedTheme)) return savedTheme;
 
         return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+
+    getSavedStation() {
+        const savedStation = Number(localStorage.getItem('knmi-station'));
+        if (this.isKnownStation(savedStation)) {
+            return savedStation;
+        }
+
+        return this.defaultStation;
+    }
+
+    isKnownStation(station) {
+        return this.stations.some(item => Number(item.id) === Number(station));
+    }
+
+    getStationById(station) {
+        return this.stations.find(item => Number(item.id) === Number(station)) || {
+            id: this.defaultStation,
+            name: 'De Bilt',
+            label: 'De Bilt (260)'
+        };
     }
 
     t(key, params = {}) {
@@ -110,7 +137,7 @@ class WeatherApp {
         const data = typeof INITIAL_WEATHER_DATA !== 'undefined' ? INITIAL_WEATHER_DATA : null;
         const expectedDate = this.formatDateForAPI(this.currentDate);
 
-        if (!data || data.date !== expectedDate) {
+        if (!data || data.date !== expectedDate || Number(data.station) !== this.currentStation) {
             return false;
         }
 
@@ -157,6 +184,13 @@ class WeatherApp {
             primaryDate.addEventListener('change', (e) => {
                 this.currentDate = this.parseAPIDate(e.target.value);
                 this.loadWeatherData();
+            });
+        }
+
+        const stationSelect = document.getElementById('stationSelect');
+        if (stationSelect) {
+            stationSelect.addEventListener('change', (e) => {
+                this.setStation(Number(e.target.value));
             });
         }
 
@@ -407,6 +441,95 @@ class WeatherApp {
         this.updateDocumentLinks();
         this.updatePageTitle();
         this.refreshChartRangeLabel();
+        this.updateStationDisplay();
+    }
+
+    updateStationControls() {
+        const stationSelect = document.getElementById('stationSelect');
+        if (stationSelect) {
+            stationSelect.value = String(this.currentStation);
+        }
+
+        this.updateStationDisplay();
+    }
+
+    updateStationDisplay() {
+        const station = this.getStationById(this.currentStation);
+        const label = station.label || `${station.name} (${station.id})`;
+
+        const primaryStationLabel = document.getElementById('primaryStationLabel');
+        if (primaryStationLabel) {
+            primaryStationLabel.textContent = this.t('station', { station: label });
+        }
+
+        const comparisonStationLabel = document.getElementById('comparisonStationLabel');
+        if (comparisonStationLabel) {
+            comparisonStationLabel.textContent = this.t('comparisonStation', { station: label });
+        }
+
+        const footerStationLabel = document.getElementById('footerStationLabel');
+        if (footerStationLabel) {
+            footerStationLabel.textContent = this.t('stationShort', { station: label });
+        }
+    }
+
+    async setStation(station) {
+        station = Number(station);
+        if (!this.isKnownStation(station) || station === this.currentStation) {
+            this.updateStationControls();
+            return;
+        }
+
+        const previousStation = this.currentStation;
+        const previousFirstDate = this.firstDate;
+        const previousLastDate = this.lastDate;
+        const previousDate = new Date(this.currentDate);
+        const previousWeatherData = this.currentWeatherData;
+        const previousComparisonData = this.currentComparisonData;
+        const previousCalendarDayStats = this.calendarDayStats;
+        const previousMonthlyStats = this.monthlyStats;
+
+        this.currentStation = station;
+        localStorage.setItem('knmi-station', String(station));
+        this.api.clearCache();
+        this.currentWeatherData = null;
+        this.currentComparisonData = null;
+        this.calendarDayStats = null;
+        this.monthlyStats = null;
+        this.updateStationControls();
+
+        try {
+            await this.syncDateRange();
+            this.currentDate = this.clampDateToAvailableRange(this.currentDate);
+            this.updateDateDisplay();
+            await this.loadWeatherData({
+                updateUrl: this.shouldUpdateDateUrl
+            });
+
+            if (this.comparisonMode) {
+                const comparisonDateEl = document.getElementById('comparisonDate');
+                if (comparisonDateEl?.value) {
+                    const comparisonDate = this.clampDateToAvailableRange(this.parseAPIDate(comparisonDateEl.value));
+                    comparisonDateEl.value = this.formatDateForAPI(comparisonDate);
+                    await this.loadComparisonData();
+                }
+            }
+        } catch (error) {
+            console.error('Error switching station:', error);
+            this.currentStation = previousStation;
+            this.firstDate = previousFirstDate;
+            this.lastDate = previousLastDate;
+            this.currentDate = previousDate;
+            this.currentWeatherData = previousWeatherData;
+            this.currentComparisonData = previousComparisonData;
+            this.calendarDayStats = previousCalendarDayStats;
+            this.monthlyStats = previousMonthlyStats;
+            localStorage.setItem('knmi-station', String(previousStation));
+            this.updateStationControls();
+            this.updateDateRangeText();
+            this.updateDateDisplay();
+            this.showMessage(this.t('stationLoadError'), 'error');
+        }
     }
 
     updatePreferenceControls() {
@@ -583,6 +706,12 @@ class WeatherApp {
 
     async loadInitialData() {
         try {
+            if (this.currentStation !== this.defaultStation) {
+                await this.syncDateRange();
+                this.currentDate = this.clampDateToAvailableRange(this.currentDate);
+                this.updateDateDisplay();
+            }
+
             await this.loadWeatherData({
                 updateUrl: this.shouldUpdateDateUrl
             });
@@ -603,7 +732,7 @@ class WeatherApp {
         
         try {
             const dateStr = this.formatDateForAPI(this.currentDate);
-            const data = await this.api.fetchWeatherData(dateStr);
+            const data = await this.api.fetchWeatherData(dateStr, this.currentStation);
             
             this.currentWeatherData = data;
             this.updatePrimaryWeatherDisplay(data, { updateUrl });
@@ -631,7 +760,7 @@ class WeatherApp {
             const comparisonDateStr = document.getElementById('comparisonDate').value;
             if (!comparisonDateStr) return;
 
-            const data = await this.api.fetchWeatherData(comparisonDateStr);
+            const data = await this.api.fetchWeatherData(comparisonDateStr, this.currentStation);
             this.currentComparisonData = data;
             this.updateComparisonWeatherDisplay(data);
             
@@ -700,7 +829,7 @@ class WeatherApp {
             const startDateStr = this.formatDateForAPI(startDate);
             const endDateStr = this.formatDateForAPI(endDate);
 
-            const data = await this.api.fetchPeriodData(startDateStr, endDateStr);
+            const data = await this.api.fetchPeriodData(startDateStr, endDateStr, this.currentStation);
 
             this.chartRangeMode = rangeKey;
             this.chartRangeStart = startDateStr;
@@ -796,7 +925,7 @@ class WeatherApp {
             const year = this.currentDate.getFullYear();
             const month = this.currentDate.getMonth() + 1;
             
-            const stats = await this.api.fetchMonthlyStats(year, month);
+            const stats = await this.api.fetchMonthlyStats(year, month, this.currentStation);
             this.monthlyStats = stats;
             this.monthlyStatsYear = year;
             this.monthlyStatsMonth = month;
@@ -811,7 +940,7 @@ class WeatherApp {
     async loadCalendarDayStats() {
         try {
             const dateStr = this.formatDateForAPI(this.currentDate);
-            const stats = await this.api.fetchCalendarDayStats(dateStr);
+            const stats = await this.api.fetchCalendarDayStats(dateStr, this.currentStation);
             this.calendarDayStats = stats;
             this.updateCalendarDayStatsDisplay(stats);
         } catch (error) {
@@ -920,6 +1049,7 @@ class WeatherApp {
         this.updateElement('primaryRainDuration', this.formatDuration(data.precipitation.duration));
         this.updateElement('primarySun', this.formatDuration(data.sunshine.duration));
         this.updateElement('primarySunPercentage', data.sunshine.percentage ? `${data.sunshine.percentage}%` : '--');
+        this.updateElement('primarySunRadiation', this.formatRadiation(data.sunshine.radiation));
 
         // Pressure & Humidity
         this.updateElement('primaryPressure', this.formatPressure(data.pressure.avg));
@@ -936,6 +1066,7 @@ class WeatherApp {
         const primaryWind = this.parseValue(this.getElementText('primaryWind'));
         const primaryRain = this.parseValue(this.getElementText('primaryRain'));
         const primarySun = this.parseValue(this.getElementText('primarySun'));
+        const primaryRadiation = this.parseValue(this.getElementText('primarySunRadiation'));
 
         // Update comparison title
         const titleEl = document.getElementById('comparisonDayTitle');
@@ -950,7 +1081,8 @@ class WeatherApp {
                 temp: primaryTemp,
                 wind: primaryWind,
                 rain: primaryRain,
-                sun: primarySun
+                sun: primarySun,
+                radiation: primaryRadiation
             });
         }
     }
@@ -960,6 +1092,7 @@ class WeatherApp {
         const windDiff = this.calculateDifference(data.wind.speed_avg, primaryData.wind);
         const rainDiff = this.calculateDifference(data.precipitation.amount, primaryData.rain);
         const sunDiff = this.calculateDifference(data.sunshine.duration, primaryData.sun);
+        const radiationDiff = this.calculateDifference(data.sunshine.radiation, primaryData.radiation);
 
         return `
             <h5 class="text-danger mb-3">
@@ -1070,6 +1203,13 @@ class WeatherApp {
                             <span class="metric-label">${this.t('percentage')}</span>
                             <span class="metric-value comparison-value">${data.sunshine.percentage ? `${data.sunshine.percentage}%` : '--'}</span>
                         </div>
+                    </div>
+                    <div class="weather-metric comparison-metric mt-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="metric-label">${this.t('radiation')}</span>
+                            <span class="metric-value comparison-value">${this.formatRadiation(data.sunshine.radiation)}</span>
+                        </div>
+                        <small class="text-muted">${this.t('difference')}: ${radiationDiff}</small>
                     </div>
                 </div>
             </div>
@@ -1315,9 +1455,11 @@ class WeatherApp {
     }
 
     async syncDateRange() {
-        const range = await this.api.fetchDateRange();
+        const range = await this.api.fetchDateRange(this.currentStation);
 
-        if (!range?.first_date || !range?.last_date) return;
+        if (!range?.first_date || !range?.last_date) {
+            throw new Error('No date range available for station');
+        }
 
         this.firstDate = range.first_date;
         this.lastDate = range.last_date;
@@ -1383,6 +1525,23 @@ class WeatherApp {
         }
     }
 
+    clampDateToAvailableRange(date) {
+        if (!this.firstDate || !this.lastDate) {
+            return date;
+        }
+
+        const dateString = this.formatDateForAPI(date);
+        if (dateString < this.firstDate) {
+            return this.parseAPIDate(this.firstDate);
+        }
+
+        if (dateString > this.lastDate) {
+            return this.parseAPIDate(this.lastDate);
+        }
+
+        return date;
+    }
+
     parseAPIDate(dateString) {
         const [year, month, day] = dateString.split('-').map(Number);
         return new Date(year, month - 1, day);
@@ -1422,6 +1581,10 @@ class WeatherApp {
 
     formatPressure(value) {
         return value !== null && value !== undefined ? `${value}\u00a0hPa` : '--\u00a0hPa';
+    }
+
+    formatRadiation(value) {
+        return value !== null && value !== undefined ? `${value}\u00a0J/cm\u00b2` : '--\u00a0J/cm\u00b2';
     }
 
     formatPercent(value) {
@@ -1468,10 +1631,10 @@ class WeatherApp {
     }
 
     formatHour(hour) {
-        if (!hour) return '';
+        if (hour === null || hour === undefined || hour === '') return '';
         const hourNumber = Number(hour);
         const h = hourNumber > 100 ? Math.floor(hourNumber / 100) : hourNumber;
-        return `uur ${h}`;
+        return `${this.t('hourPrefix')} ${h}`;
     }
 
     parseValue(text) {
