@@ -1469,9 +1469,9 @@ class WeatherApp {
 
     formatHour(hour) {
         if (!hour) return '';
-        const h = Math.floor(hour / 100);
-        const m = hour % 100;
-        return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+        const hourNumber = Number(hour);
+        const h = hourNumber > 100 ? Math.floor(hourNumber / 100) : hourNumber;
+        return `uur ${h}`;
     }
 
     parseValue(text) {
