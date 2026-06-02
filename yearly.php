@@ -512,14 +512,14 @@ $manifestHref = appAssetPath('manifest.json');
                             <table class="table table-sm align-middle sortable-table" id="yearlyStatsTable">
                                 <thead>
                                     <tr>
-                                        <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="0" data-i18n="year">Jaar</button></th>
-                                        <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="1" data-i18n="rainTotal">Neerslag totaal</button></th>
-                                        <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="2" data-i18n="rainMinMonth">Droogste maand</button></th>
-                                        <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="3" data-i18n="rainMaxMonth">Natste maand</button></th>
-                                        <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="4" data-i18n="daysWithPrecipitation">Dagen met neerslag</button></th>
-                                        <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="5" data-i18n="tempMin">Laagste min.</button></th>
-                                        <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="6" data-i18n="tempMax">Hoogste max.</button></th>
-                                        <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="7" data-i18n="sunHours">Zonuren</button></th>
+                                        <th aria-sort="descending"><button type="button" class="table-sort-button" data-sort-column="0"><span data-i18n="year">Jaar</span><i class="bi bi-arrow-down table-sort-icon" aria-hidden="true"></i></button></th>
+                                        <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="1"><span data-i18n="rainTotal">Neerslag totaal</span><i class="bi bi-arrow-down-up table-sort-icon" aria-hidden="true"></i></button></th>
+                                        <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="2"><span data-i18n="rainMinMonth">Droogste maand</span><i class="bi bi-arrow-down-up table-sort-icon" aria-hidden="true"></i></button></th>
+                                        <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="3"><span data-i18n="rainMaxMonth">Natste maand</span><i class="bi bi-arrow-down-up table-sort-icon" aria-hidden="true"></i></button></th>
+                                        <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="4"><span data-i18n="daysWithPrecipitation">Dagen met neerslag</span><i class="bi bi-arrow-down-up table-sort-icon" aria-hidden="true"></i></button></th>
+                                        <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="5"><span data-i18n="tempMin">Laagste min.</span><i class="bi bi-arrow-down-up table-sort-icon" aria-hidden="true"></i></button></th>
+                                        <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="6"><span data-i18n="tempMax">Hoogste max.</span><i class="bi bi-arrow-down-up table-sort-icon" aria-hidden="true"></i></button></th>
+                                        <th aria-sort="none"><button type="button" class="table-sort-button" data-sort-column="7"><span data-i18n="sunHours">Zonuren</span><i class="bi bi-arrow-down-up table-sort-icon" aria-hidden="true"></i></button></th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -657,11 +657,28 @@ $manifestHref = appAssetPath('manifest.json');
             rows.forEach(row => tbody.appendChild(row));
         }
 
+        function updateSortIcons(table) {
+            table.querySelectorAll('thead th').forEach(header => {
+                const icon = header.querySelector('.table-sort-icon');
+                if (!icon) return;
+
+                const sortDirection = header.getAttribute('aria-sort');
+                icon.className = 'bi table-sort-icon '
+                    + (sortDirection === 'ascending'
+                        ? 'bi-arrow-up'
+                        : sortDirection === 'descending'
+                            ? 'bi-arrow-down'
+                            : 'bi-arrow-down-up');
+            });
+        }
+
         function initSortableTable() {
             const table = document.getElementById('yearlyStatsTable');
             if (!table) return;
 
             const headers = Array.from(table.querySelectorAll('thead th'));
+            updateSortIcons(table);
+
             table.querySelectorAll('[data-sort-column]').forEach(button => {
                 button.addEventListener('click', () => {
                     const header = button.closest('th');
@@ -671,6 +688,7 @@ $manifestHref = appAssetPath('manifest.json');
 
                     headers.forEach(item => item.setAttribute('aria-sort', 'none'));
                     header.setAttribute('aria-sort', nextDirection);
+                    updateSortIcons(table);
                     sortTable(table, Number(button.dataset.sortColumn), nextDirection);
                 });
             });

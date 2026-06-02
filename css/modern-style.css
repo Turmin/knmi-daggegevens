@@ -1155,19 +1155,25 @@ a {
     white-space: nowrap;
 }
 
+.table-sort-icon {
+    color: var(--text-muted);
+    flex: 0 0 auto;
+    font-size: 0.9rem;
+    line-height: 1;
+    opacity: 0.72;
+}
+
 .table-sort-button:hover,
 .table-sort-button:focus-visible {
     color: var(--primary-blue);
 }
 
-.sortable-table th[aria-sort="ascending"] .table-sort-button::after {
-    content: "^";
-    font-size: 0.75rem;
-}
-
-.sortable-table th[aria-sort="descending"] .table-sort-button::after {
-    content: "v";
-    font-size: 0.75rem;
+.table-sort-button:hover .table-sort-icon,
+.table-sort-button:focus-visible .table-sort-icon,
+.sortable-table th[aria-sort="ascending"] .table-sort-icon,
+.sortable-table th[aria-sort="descending"] .table-sort-icon {
+    color: var(--primary-blue);
+    opacity: 1;
 }
 
 .table-sm kbd {
