@@ -642,6 +642,12 @@ small.text-muted {
     min-height: 42px;
 }
 
+.date-navigation .btn-custom {
+    font-size: 0.9rem;
+    padding-left: 0.55rem;
+    padding-right: 0.55rem;
+}
+
 .date-navigation .form-control,
 .date-navigation .form-select,
 .comparison-toggle input[type="date"].form-control {

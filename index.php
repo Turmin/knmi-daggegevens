@@ -369,8 +369,8 @@ if ($initialWeatherJson === false) {
         <div class="row mb-4">
             <div class="col-12">
                 <div class="date-navigation">
-                    <div class="row g-3 align-items-center">
-                        <div class="col-md-5 col-lg-4">
+                    <div class="row g-2 align-items-center">
+                        <div class="col-md-3">
                             <div class="input-group">
                                 <span class="input-group-text">
                                     <i class="bi bi-calendar-date"></i>
@@ -383,7 +383,7 @@ if ($initialWeatherJson === false) {
                                        max="<?php echo $lastDate; ?>">
                             </div>
                         </div>
-                        <div class="col-md-7 col-lg-4">
+                        <div class="col-md-3">
                             <div class="input-group station-select-group">
                                 <label class="input-group-text" for="stationSelect" title="Meetstation" data-i18n-title="stationSelect">
                                     <i class="bi bi-geo-alt"></i>
@@ -398,7 +398,7 @@ if ($initialWeatherJson === false) {
                                 </select>
                             </div>
                         </div>
-                        <div class="col-12 col-lg-4">
+                        <div class="col-md-6">
                             <div class="btn-group w-100 date-action-group" role="group" aria-label="Datum navigatie">
                                 <button type="button" class="btn btn-outline-primary btn-custom" id="prevDay" title="Vorige dag (Ctrl+←)" data-i18n-title="prevDay">
                                     <i class="bi bi-chevron-left"></i> <span class="d-none d-sm-inline" data-i18n="prevDay">Vorige dag</span>
