@@ -534,6 +534,9 @@ $activity = array_reverse($_SESSION['admin_activity'] ?? []);
                         <div>
                             <h2 class="h5 mb-1"><i class="bi bi-clock-history text-primary me-2"></i>Cron schedules</h2>
                             <div class="small text-muted">Database-managed jobs. Run <code>cron.php</code> every minute from one server cron.</div>
+                            <div class="small text-muted mt-1">
+                                Schedule fields: <code>minute</code> <code>hour</code> <code>day</code> <code>month</code> <code>weekday</code>
+                            </div>
                         </div>
                         <div class="text-lg-end small">
                             <div>
@@ -573,10 +576,6 @@ $activity = array_reverse($_SESSION['admin_activity'] ?? []);
                             <div class="col-md-2">
                                 <label class="form-label" for="new_cron_schedule">Schedule</label>
                                 <input class="form-control" id="new_cron_schedule" name="schedule" value="15 8 * * *" required>
-                                <div class="small text-muted mt-1">
-                                    <code>minute</code> <code>hour</code> <code>day</code> <code>month</code> <code>weekday</code>
-                                </div>
-                                <div class="small text-muted mt-1"><?php echo h(CronScheduleService::describeSchedule('15 8 * * *')); ?></div>
                             </div>
                             <div class="col-md-1">
                                 <div class="form-check mb-2">
@@ -588,11 +587,15 @@ $activity = array_reverse($_SESSION['admin_activity'] ?? []);
                                 <button class="btn btn-primary w-100" type="submit" name="action" value="cron_save">Add</button>
                             </div>
                         </div>
+                        <div class="small text-muted mt-2 cron-schedule-description" id="new_cron_schedule_description" aria-live="polite">
+                            <?php echo h(CronScheduleService::describeSchedule('15 8 * * *')); ?>
+                        </div>
                         <div class="small text-muted mt-2">Examples: <code>*/5 * * * *</code>, <code>15 8 * * *</code>, <code>0,30 8-12 * * *</code>, <code>@daily</code>.</div>
                     </form>
 
                     <?php if ($cronJobs): ?>
                         <?php foreach ($cronJobs as $job): ?>
+                            <?php $jobScheduleDescription = CronScheduleService::describeSchedule((string)$job['schedule']); ?>
                             <form class="cron-row" method="post">
                                 <input type="hidden" name="csrf" value="<?php echo h($csrf); ?>">
                                 <input type="hidden" name="id" value="<?php echo h($job['id']); ?>">
@@ -619,11 +622,13 @@ $activity = array_reverse($_SESSION['admin_activity'] ?? []);
                                         </select>
                                     </div>
                                     <div class="col-lg-2">
-                                        <label class="form-label" for="cron_schedule_<?php echo h($job['id']); ?>">Schedule</label>
+                                        <label class="form-label d-inline-flex align-items-center gap-1" for="cron_schedule_<?php echo h($job['id']); ?>">
+                                            Schedule
+                                            <span class="cron-help-icon" tabindex="0" title="<?php echo h($jobScheduleDescription); ?>" aria-label="Schedule: <?php echo h($jobScheduleDescription); ?>">
+                                                <i class="bi bi-info-circle"></i>
+                                            </span>
+                                        </label>
                                         <input class="form-control" id="cron_schedule_<?php echo h($job['id']); ?>" name="schedule" value="<?php echo h($job['schedule']); ?>" required>
-                                        <div class="small text-muted mt-1">
-                                            <code>minute</code> <code>hour</code> <code>day</code> <code>month</code> <code>weekday</code>
-                                        </div>
                                     </div>
                                     <div class="col-lg-1">
                                         <div class="form-check mb-2">
@@ -642,8 +647,6 @@ $activity = array_reverse($_SESSION['admin_activity'] ?? []);
                                 <div class="cron-meta small text-muted mt-2">
                                     Station:
                                     <?php echo h(($job['station'] ?? null) ? ((KnmiStationCatalog::name((int)$job['station']) ?: 'Station') . ' (' . (int)$job['station'] . ')') : 'All stations'); ?>,
-                                    schedule:
-                                    <?php echo h(CronScheduleService::describeSchedule((string)$job['schedule'])); ?>,
                                     Last run: <?php echo h($job['last_run_at'] ?: '-'); ?>,
                                     status:
                                     <span class="badge bg-<?php echo ($job['last_status'] ?? '') === 'success' ? 'success' : (($job['last_status'] ?? '') === 'failed' ? 'danger' : 'secondary'); ?>">
@@ -713,5 +716,6 @@ $activity = array_reverse($_SESSION['admin_activity'] ?? []);
             </div>
         <?php endif; ?>
     </div>
+    <script src="js/cron-schedule.js"></script>
 </body>
 </html>

@@ -104,6 +104,24 @@ body {
     min-height: 1.25rem;
 }
 
+.cron-help-icon {
+    color: #52667a;
+    cursor: help;
+    display: inline-flex;
+    border-radius: 999px;
+}
+
+.cron-help-icon:hover,
+.cron-help-icon:focus {
+    color: #0a66c2;
+    outline: 2px solid rgba(10, 102, 194, .25);
+    outline-offset: 2px;
+}
+
+.cron-schedule-description {
+    min-height: 1.25rem;
+}
+
 pre {
     white-space: pre-wrap;
     word-break: break-word;
