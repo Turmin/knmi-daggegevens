@@ -45,6 +45,27 @@ Error responses use this shape:
 
 Dates must use `YYYY-MM-DD`.
 
+## Rate Limit
+
+The API is rate limited per client before a database connection is opened.
+The default limit is `120` requests per `60` seconds.
+
+Responses include:
+
+| Header | Description |
+| --- | --- |
+| `X-RateLimit-Limit` | Maximum requests in the current window. |
+| `X-RateLimit-Remaining` | Requests left in the current window. |
+| `X-RateLimit-Reset` | Unix timestamp when the current window resets. |
+| `Retry-After` | Seconds to wait; only sent with `429` responses. |
+
+The defaults can be changed with environment variables:
+
+| Variable | Default |
+| --- | --- |
+| `KNMI_API_RATE_LIMIT_REQUESTS` | `120` |
+| `KNMI_API_RATE_LIMIT_WINDOW_SECONDS` | `60` |
+
 ## Endpoints
 
 ### Get One Day
@@ -69,7 +90,7 @@ Returns one weather record with:
 | `temperature` | Average, minimum, maximum, ground minimum, and related hour/period values. Temperatures are Celsius. |
 | `wind` | Direction, direction degrees, vector/average/min/max/gust speeds, Beaufort data, and related hour values. Speeds are km/h. |
 | `precipitation` | Amount, duration, maximum hourly amount, and maximum-hour value. Amounts are mm, durations are hours. |
-| `sunshine` | Sunshine duration, percentage, and global radiation. |
+| `sunshine` | Sunshine duration, percentage, and global radiation in J/cm². |
 | `pressure` | Average, minimum, maximum, and related hour values in hPa. |
 | `visibility` | Minimum, maximum, and related hour values. |
 | `humidity` | Average, minimum, maximum, and related hour values. |
@@ -107,6 +128,7 @@ Returns an array of chart-friendly records ordered by date:
 | `wind_speed` | Average wind speed in km/h. |
 | `rain_amount`, `rain_duration` | Precipitation amount in mm and duration in hours. |
 | `sun_duration` | Sunshine duration in hours. |
+| `radiation` | Global radiation in J/cm². |
 | `pressure` | Average pressure in hPa. |
 
 Possible errors:
@@ -192,3 +214,22 @@ Unsupported HTTP methods return:
 ```
 
 Unknown endpoints return `404` with `Endpoint not found`.
+
+Rate limited requests return:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": 429,
+    "message": "Rate limit exceeded. Try again later."
+  },
+  "rate_limit": {
+    "limit": 120,
+    "remaining": 0,
+    "reset": 1780400000,
+    "retry_after": 42
+  },
+  "timestamp": "2026-06-02T10:00:00+02:00"
+}
+```

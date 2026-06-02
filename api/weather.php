@@ -14,6 +14,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
+require_once __DIR__ . '/../lib/ApiRateLimiter.php';
+
+if (!function_exists('apiRateLimitConfig')) {
+    function apiRateLimitConfig(string $name, int $fallback): int {
+        $value = getenv($name);
+        return is_numeric($value) && (int)$value > 0 ? (int)$value : $fallback;
+    }
+}
+
+if (!function_exists('sendRateLimitHeaders')) {
+    function sendRateLimitHeaders(array $rateLimit): void {
+        header('X-RateLimit-Limit: ' . $rateLimit['limit']);
+        header('X-RateLimit-Remaining: ' . $rateLimit['remaining']);
+        header('X-RateLimit-Reset: ' . $rateLimit['reset']);
+
+        if (!$rateLimit['allowed']) {
+            header('Retry-After: ' . $rateLimit['retry_after']);
+        }
+    }
+}
+
+$rateLimiter = new ApiRateLimiter(
+    null,
+    apiRateLimitConfig('KNMI_API_RATE_LIMIT_REQUESTS', 120),
+    apiRateLimitConfig('KNMI_API_RATE_LIMIT_WINDOW_SECONDS', 60)
+);
+$rateLimit = $rateLimiter->check(ApiRateLimiter::clientIdentifierFromServer($_SERVER));
+sendRateLimitHeaders($rateLimit);
+
+if (!$rateLimit['allowed']) {
+    http_response_code(429);
+    echo json_encode([
+        'success' => false,
+        'error' => [
+            'code' => 429,
+            'message' => 'Rate limit exceeded. Try again later.'
+        ],
+        'rate_limit' => [
+            'limit' => $rateLimit['limit'],
+            'remaining' => $rateLimit['remaining'],
+            'reset' => $rateLimit['reset'],
+            'retry_after' => $rateLimit['retry_after']
+        ],
+        'timestamp' => date('c')
+    ], JSON_PRETTY_PRINT);
+    exit;
+}
+
 require_once __DIR__ . '/../config/Database.php';
 require_once __DIR__ . '/../models/WeatherData.php';
 require_once __DIR__ . '/../models/WeatherClimateStats.php';
