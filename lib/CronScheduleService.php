@@ -36,6 +36,10 @@ class CronScheduleService {
             return 'Invalid cron expression.';
         }
 
+        if (!self::isValidScheduleParts($parts)) {
+            return 'Invalid cron expression.';
+        }
+
         [$minute, $hour, $day, $month, $weekday] = $parts;
         if ($minute === '*' && $hour === '*' && $day === '*' && $month === '*' && $weekday === '*') {
             return 'Every minute.';
@@ -56,7 +60,7 @@ class CronScheduleService {
             $details[] = 'in ' . self::describeField($month, self::monthNames());
         }
 
-        if ($weekday !== '*') {
+        if ($weekday !== '*' && !self::isEveryWeekdayField($weekday)) {
             $details[] = 'on ' . self::describeField($weekday, self::weekdayNames());
         }
 
@@ -292,6 +296,88 @@ class CronScheduleService {
         ];
 
         return $aliases[$schedule] ?? $schedule;
+    }
+
+    private static function isValidScheduleParts(array $parts): bool {
+        $ranges = [
+            [0, 59],
+            [0, 23],
+            [1, 31],
+            [1, 12],
+            [0, 7]
+        ];
+
+        foreach ($parts as $index => $part) {
+            if (!self::isValidFieldPart($part, $ranges[$index][0], $ranges[$index][1])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static function isValidFieldPart(string $field, int $min, int $max): bool {
+        foreach (explode(',', $field) as $segment) {
+            if ($segment === '') {
+                return false;
+            }
+
+            if ($segment === '*') {
+                continue;
+            }
+
+            if (preg_match('/^\*\/(\d+)$/', $segment, $match)) {
+                $step = (int)$match[1];
+                if ($step < 1 || $step > $max) {
+                    return false;
+                }
+                continue;
+            }
+
+            if (preg_match('/^(\d+)-(\d+)$/', $segment, $match)) {
+                $start = (int)$match[1];
+                $end = (int)$match[2];
+                if ($start < $min || $end > $max || $start > $end) {
+                    return false;
+                }
+                continue;
+            }
+
+            if (!ctype_digit($segment)) {
+                return false;
+            }
+
+            $value = (int)$segment;
+            if ($value < $min || $value > $max) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static function isEveryWeekdayField(string $field): bool {
+        if ($field === '*/1' || in_array($field, ['0-6', '0-7', '1-7'], true)) {
+            return true;
+        }
+
+        $days = [];
+        foreach (explode(',', $field) as $segment) {
+            if (!ctype_digit($segment)) {
+                return false;
+            }
+
+            $day = (int)$segment;
+            $days[$day === 7 ? 0 : $day] = true;
+        }
+
+        for ($day = 0; $day <= 6; $day++) {
+            if (empty($days[$day])) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static function describeTimeFields(string $minute, string $hour): string {

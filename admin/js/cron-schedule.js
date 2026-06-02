@@ -120,6 +120,88 @@
         return sentence;
     }
 
+    function isValidFieldPart(field, min, max) {
+        return field.split(',').every(function (segment) {
+            var match;
+            var step;
+            var start;
+            var end;
+            var value;
+
+            if (segment === '') {
+                return false;
+            }
+
+            if (segment === '*') {
+                return true;
+            }
+
+            match = segment.match(/^\*\/(\d+)$/);
+            if (match) {
+                step = parseInt(match[1], 10);
+                return step >= 1 && step <= max;
+            }
+
+            match = segment.match(/^(\d+)-(\d+)$/);
+            if (match) {
+                start = parseInt(match[1], 10);
+                end = parseInt(match[2], 10);
+                return start >= min && end <= max && start <= end;
+            }
+
+            if (!isDigit(segment)) {
+                return false;
+            }
+
+            value = parseInt(segment, 10);
+            return value >= min && value <= max;
+        });
+    }
+
+    function isValidScheduleParts(parts) {
+        var ranges = [
+            [0, 59],
+            [0, 23],
+            [1, 31],
+            [1, 12],
+            [0, 7]
+        ];
+
+        return parts.every(function (part, index) {
+            return isValidFieldPart(part, ranges[index][0], ranges[index][1]);
+        });
+    }
+
+    function isEveryWeekdayField(field) {
+        var days = {};
+
+        if (field === '*/1' || ['0-6', '0-7', '1-7'].indexOf(field) !== -1) {
+            return true;
+        }
+
+        if (field.indexOf(',') === -1) {
+            return false;
+        }
+
+        if (!field.split(',').every(function (segment) {
+            var day;
+
+            if (!isDigit(segment)) {
+                return false;
+            }
+
+            day = parseInt(segment, 10);
+            days[day === 7 ? 0 : day] = true;
+            return true;
+        })) {
+            return false;
+        }
+
+        return [0, 1, 2, 3, 4, 5, 6].every(function (day) {
+            return days[day] === true;
+        });
+    }
+
     function describeSchedule(schedule) {
         var aliases = {
             '@hourly': '0 * * * *',
@@ -142,6 +224,10 @@
         parts = schedule.split(' ');
 
         if (parts.length !== 5) {
+            return 'Invalid cron expression.';
+        }
+
+        if (!isValidScheduleParts(parts)) {
             return 'Invalid cron expression.';
         }
 
@@ -170,7 +256,7 @@
             details.push('in ' + describeField(month, monthNames));
         }
 
-        if (weekday !== '*') {
+        if (weekday !== '*' && !isEveryWeekdayField(weekday)) {
             details.push('on ' + describeField(weekday, weekdayNames));
         }
 
