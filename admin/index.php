@@ -52,6 +52,20 @@ function formatBytes($bytes): string {
     return round($size, $unit === 0 ? 0 : 1) . ' ' . $units[$unit];
 }
 
+function dataFileCountLabel(array $fileInfo): string {
+    $files = $fileInfo['files'] ?? [];
+    $total = count($files);
+    $available = 0;
+
+    foreach ($files as $file) {
+        if (!empty($file['exists'])) {
+            $available++;
+        }
+    }
+
+    return $available . '/' . $total . ' station files';
+}
+
 function loadCredentials(string $credentialsFile): ?array {
     if (!is_file($credentialsFile)) {
         return null;
@@ -99,6 +113,7 @@ function getAdminStats(PDO $db, KnmiDataService $service): array {
         return $stats;
     }
 
+    $stationIds = implode(',', array_map('intval', $service->getStationIds()));
     $stmt = $db->query("
         SELECT
             COUNT(*) as total_records,
@@ -106,7 +121,7 @@ function getAdminStats(PDO $db, KnmiDataService $service): array {
             MIN(yyyymmdd) as first_date,
             MAX(yyyymmdd) as latest_date
         FROM knmi
-        WHERE stn = 260
+        WHERE stn IN (" . $stationIds . ")
     ");
     $row = $stmt->fetch() ?: [];
 
@@ -117,7 +132,7 @@ function getAdminStats(PDO $db, KnmiDataService $service): array {
     return $stats;
 }
 
-function exportCsv(PDO $db): void {
+function exportCsv(PDO $db, KnmiDataService $service): void {
     $columns = [
         'stn', 'yyyymmdd', 'ddvec', 'fhvec', 'fg', 'fhx', 'fhxh', 'fhn', 'fhnh',
         'fxx', 'fxxh', 'tg', 'tn', 'tnh', 'tx', 'txh', 't10n', 't10nh',
@@ -127,12 +142,13 @@ function exportCsv(PDO $db): void {
     ];
 
     header('Content-Type: text/csv; charset=utf-8');
-    header('Content-Disposition: attachment; filename="knmi_260_export_' . date('Ymd_His') . '.csv"');
+    header('Content-Disposition: attachment; filename="knmi_stations_export_' . date('Ymd_His') . '.csv"');
 
     $output = fopen('php://output', 'w');
     fputcsv($output, $columns);
 
-    $stmt = $db->query('SELECT `' . implode('`,`', $columns) . '` FROM knmi WHERE stn = 260 ORDER BY yyyymmdd ASC');
+    $stationIds = implode(',', array_map('intval', $service->getStationIds()));
+    $stmt = $db->query('SELECT `' . implode('`,`', $columns) . '` FROM knmi WHERE stn IN (' . $stationIds . ') ORDER BY stn ASC, yyyymmdd ASC');
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         fputcsv($output, $row);
     }
@@ -224,7 +240,7 @@ if ($isLoggedIn) {
             if (!tableExists($db)) {
                 redirectAdmin(['type' => 'warning', 'messages' => ['The knmi table does not exist yet. Import data before exporting.']]);
             }
-            exportCsv($db);
+            exportCsv($db, $service);
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
@@ -400,7 +416,7 @@ $activity = array_reverse($_SESSION['admin_activity'] ?? []);
                     <div class="stat-card">
                         <div class="text-muted">Database records</div>
                         <div class="stat-number"><?php echo number_format((int) ($stats['total_records'] ?? 0)); ?></div>
-                        <small>Station 260</small>
+                        <small>Configured stations</small>
                     </div>
                 </div>
                 <div class="col-md-3">
@@ -467,13 +483,13 @@ $activity = array_reverse($_SESSION['admin_activity'] ?? []);
                             <div class="d-grid gap-2">
                                 <div class="status-row d-flex justify-content-between"><span>Database connection</span><span class="badge bg-<?php echo $db ? 'success' : 'danger'; ?>"><?php echo $db ? 'Online' : 'Offline'; ?></span></div>
                                 <div class="status-row d-flex justify-content-between"><span>Table knmi</span><span class="badge bg-<?php echo ($stats['table_exists'] ?? false) ? 'success' : 'warning'; ?>"><?php echo ($stats['table_exists'] ?? false) ? 'Present' : 'Missing'; ?></span></div>
-                                <div class="status-row d-flex justify-content-between"><span>KNMI file</span><span class="badge bg-<?php echo ($stats['file']['exists'] ?? false) ? 'success' : 'warning'; ?>"><?php echo ($stats['file']['exists'] ?? false) ? 'Present' : 'Missing'; ?></span></div>
+                                <div class="status-row d-flex justify-content-between"><span>KNMI files</span><span class="badge bg-<?php echo ($stats['file']['exists'] ?? false) ? 'success' : 'warning'; ?>"><?php echo h(dataFileCountLabel($stats['file'] ?? [])); ?></span></div>
                                 <div class="status-row d-flex justify-content-between"><span>ZIP extraction</span><span class="badge bg-<?php echo ($stats['zip_available'] ?? false) ? 'success' : 'danger'; ?>"><?php echo h($stats['zip_support'] ?? 'Unavailable'); ?></span></div>
                                 <div class="status-row d-flex justify-content-between"><span>Login security</span><span class="badge bg-success">Active</span></div>
                                 <div class="status-row d-flex justify-content-between"><span>Admin credentials</span><span class="badge bg-<?php echo $credentialsOutsideWebRoot ? 'success' : 'warning'; ?>"><?php echo $credentialsOutsideWebRoot ? 'Outside webroot' : 'Legacy location'; ?></span></div>
                             </div>
                             <div class="small text-muted mt-3">
-                                File: <?php echo h($service ? basename($service->getDataFilePath()) : 'etmgeg_260.txt'); ?>,
+                                Files: <?php echo h(dataFileCountLabel($stats['file'] ?? [])); ?>,
                                 <?php echo h(formatBytes($stats['file']['size'] ?? null)); ?>,
                                 modified: <?php echo h($stats['file']['modified_at'] ?? '-'); ?>
                             </div>

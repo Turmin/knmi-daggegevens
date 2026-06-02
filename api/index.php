@@ -1,3 +1,12 @@
+<?php
+require_once __DIR__ . '/../lib/KnmiStationCatalog.php';
+
+function h($value): string {
+    return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
+}
+
+$supportedStations = KnmiStationCatalog::all();
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -327,7 +336,7 @@
                                     <td><code>station</code></td>
                                     <td>integer</td>
                                     <td><code>260</code></td>
-                                    <td>KNMI station number. The current app defaults to De Bilt.</td>
+                                    <td>Supported KNMI station number. Use <code>/api/weather/stations</code> to list them. The default is De Bilt.</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -336,11 +345,39 @@
                         <i class="bi bi-calendar3"></i>
                         <span>Dates must use the <code>YYYY-MM-DD</code> format.</span>
                     </div>
+                    <h3 class="mt-4">Supported stations</h3>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Code</th>
+                                    <th>Name</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($supportedStations as $station): ?>
+                                    <tr>
+                                        <td><code><?php echo (int)$station['id']; ?></code><?php echo $station['is_default'] ? ' <span class="badge text-bg-primary">default</span>' : ''; ?></td>
+                                        <td><?php echo h($station['name']); ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
                 </section>
 
                 <section class="doc-section" id="endpoints">
                     <h2><i class="bi bi-list-check"></i> Endpoints</h2>
                     <div class="endpoint-list">
+                        <article class="endpoint">
+                            <div class="endpoint-title">
+                                <span class="method">GET</span>
+                                <strong>List supported stations</strong>
+                            </div>
+                            <pre><code>/api/weather/stations</code></pre>
+                            <p class="mb-0">Returns the supported KNMI stations and the default station.</p>
+                        </article>
+
                         <article class="endpoint">
                             <div class="endpoint-title">
                                 <span class="method">GET</span>
@@ -420,7 +457,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr><td><code>400</code></td><td>A required parameter is missing or the date format is invalid.</td></tr>
+                                <tr><td><code>400</code></td><td>A required parameter is missing, the date format is invalid, or the station is unsupported.</td></tr>
                                 <tr><td><code>404</code></td><td>The endpoint or data for the requested date was not found.</td></tr>
                                 <tr><td><code>405</code></td><td>The HTTP method is not supported.</td></tr>
                                 <tr><td><code>429</code></td><td>The rate limit was exceeded.</td></tr>

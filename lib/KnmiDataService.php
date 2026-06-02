@@ -1,12 +1,13 @@
 <?php
 
+require_once __DIR__ . '/KnmiStationCatalog.php';
+
 class KnmiDataService {
-    public const STATION = 260;
-    public const DATA_URL = 'https://cdn.knmi.nl/knmi/map/page/klimatologie/gegevens/daggegevens/etmgeg_260.zip';
+    public const STATION = KnmiStationCatalog::DEFAULT_STATION;
+    public const DATA_URL_TEMPLATE = 'https://cdn.knmi.nl/knmi/map/page/klimatologie/gegevens/daggegevens/etmgeg_%d.zip';
     public const DATA_SCRIPT_URL = 'https://www.daggegevens.knmi.nl/klimatologie/daggegevens';
 
     private $rootDir;
-    private $dataFile;
 
     private $columns = [
         'stn', 'yyyymmdd', 'ddvec', 'fhvec', 'fg', 'fhx', 'fhxh', 'fhn', 'fhnh',
@@ -18,51 +19,83 @@ class KnmiDataService {
 
     public function __construct(?string $rootDir = null) {
         $this->rootDir = $rootDir ?: dirname(__DIR__);
-        $this->dataFile = $this->rootDir . '/etmgeg_260.txt';
     }
 
-    public function getDataFilePath(): string {
-        return $this->dataFile;
+    public function getDataFilePath(?int $station = null): string {
+        return $this->getStationDataFilePath($station ?: self::STATION);
+    }
+
+    public function getStations(): array {
+        return KnmiStationCatalog::all();
+    }
+
+    public function getStationIds(): array {
+        return KnmiStationCatalog::ids();
     }
 
     public function downloadDailyData(): array {
-        $zipFile = $this->rootDir . '/etmgeg_260.zip';
+        $messages = [];
+        $files = [];
+        $failed = 0;
+
+        foreach ($this->getStationIds() as $station) {
+            $result = $this->downloadStationDailyData((int)$station);
+            $messages = array_merge($messages, $result['messages'] ?? []);
+            $files = array_merge($files, $result['files'] ?? []);
+
+            if (!($result['success'] ?? false)) {
+                $failed++;
+            }
+        }
+
+        return [
+            'success' => $failed === 0,
+            'messages' => $messages,
+            'files' => array_values(array_unique($files)),
+            'file_info' => $this->getDataFileInfo()
+        ];
+    }
+
+    private function downloadStationDailyData(int $station): array {
+        $zipFile = $this->rootDir . '/etmgeg_' . $station . '.zip';
+        $dataFile = $this->getStationDataFilePath($station);
+        $stationLabel = $this->stationLabel($station);
         $messages = [];
         $context = stream_context_create([
             'http' => ['timeout' => 120],
             'ssl' => ['verify_peer' => true, 'verify_peer_name' => true]
         ]);
 
-        $contents = $this->downloadUrl(self::DATA_URL, $context);
+        $contents = $this->downloadUrl(sprintf(self::DATA_URL_TEMPLATE, $station), $context);
         if ($contents === false) {
-            $fallback = $this->downloadDailyTextData();
+            $fallback = $this->downloadDailyTextData($station);
             if ($fallback['success'] ?? false) {
                 return [
                     'success' => true,
                     'messages' => $fallback['messages'] ?? [],
-                    'files' => [basename($this->dataFile)],
+                    'files' => [basename($dataFile)],
                     'file_info' => $this->getDataFileInfo()
                 ];
             }
 
-            return $this->result(false, array_merge(['Could not download KNMI ZIP data file.'], $fallback['messages'] ?? []));
+            return $this->result(false, array_merge(['Could not download KNMI ZIP data file for ' . $stationLabel . '.'], $fallback['messages'] ?? []));
         }
 
         if (file_put_contents($zipFile, $contents, LOCK_EX) === false) {
-            return $this->result(false, ['Could not write downloaded ZIP file.']);
+            return $this->result(false, ['Could not write downloaded ZIP file for ' . $stationLabel . '.']);
         }
-        $messages[] = 'Downloaded KNMI ZIP file.';
+        $messages[] = 'Downloaded KNMI ZIP file for ' . $stationLabel . '.';
 
-        $extract = $this->extractDownloadedZip($zipFile);
+        $extract = $this->extractDownloadedZip($zipFile, $station);
         @unlink($zipFile);
 
         if (!($extract['success'] ?? false)) {
-            $fallback = $this->downloadDailyTextData();
+            $fallback = $this->downloadDailyTextData($station);
             if ($fallback['success'] ?? false) {
                 return [
                     'success' => true,
                     'messages' => array_merge($messages, $extract['messages'] ?? [], $fallback['messages'] ?? []),
-                    'files' => [basename($this->dataFile)],
+                    'files' => [basename($dataFile)],
                     'file_info' => $this->getDataFileInfo()
                 ];
             }
@@ -85,8 +118,9 @@ class KnmiDataService {
     }
 
     public function importDailyData(PDO $db): array {
-        if (!is_file($this->dataFile)) {
-            return $this->result(false, ['Data file not found: ' . basename($this->dataFile)]);
+        $availableFiles = $this->getAvailableStationFiles();
+        if (!$availableFiles) {
+            return $this->result(false, ['No KNMI station data files found. Download data before importing.']);
         }
 
         $this->ensureTable($db);
@@ -133,105 +167,158 @@ class KnmiDataService {
 
     public function getDataFileInfo(): array {
         $info = [
-            'exists' => is_file($this->dataFile),
-            'path' => $this->dataFile,
+            'exists' => false,
+            'path' => $this->rootDir,
             'modified_at' => null,
             'size' => null,
             'rows' => 0,
-            'latest_date' => null
+            'latest_date' => null,
+            'files' => []
         ];
 
-        if (!$info['exists']) {
-            return $info;
-        }
+        foreach ($this->getStationIds() as $station) {
+            $dataFile = $this->getStationDataFilePath((int)$station);
+            $fileInfo = [
+                'station' => (int)$station,
+                'station_name' => KnmiStationCatalog::name($station),
+                'exists' => is_file($dataFile),
+                'path' => $dataFile,
+                'modified_at' => null,
+                'size' => null,
+                'rows' => 0,
+                'latest_date' => null
+            ];
 
-        $modifiedAt = filemtime($this->dataFile);
-        $size = filesize($this->dataFile);
-        $info['modified_at'] = $modifiedAt === false ? null : date('Y-m-d H:i:s', $modifiedAt);
-        $info['size'] = $size === false ? null : $size;
-
-        $handle = fopen($this->dataFile, 'r');
-        if (!$handle) {
-            return $info;
-        }
-
-        while (($line = fgets($handle)) !== false) {
-            $row = $this->parseDataLine($line);
-            if (!$row) {
+            if (!$fileInfo['exists']) {
+                $info['files'][] = $fileInfo;
                 continue;
             }
-            $info['rows']++;
-            $info['latest_date'] = $row['yyyymmdd'];
-        }
 
-        fclose($handle);
+            $info['exists'] = true;
+
+            $modifiedAt = filemtime($dataFile);
+            $size = filesize($dataFile);
+            $fileInfo['modified_at'] = $modifiedAt === false ? null : date('Y-m-d H:i:s', $modifiedAt);
+            $fileInfo['size'] = $size === false ? null : $size;
+            $info['size'] = ($info['size'] ?? 0) + (int)($fileInfo['size'] ?? 0);
+
+            if ($modifiedAt !== false && ($info['modified_at'] === null || strtotime($fileInfo['modified_at']) > strtotime($info['modified_at']))) {
+                $info['modified_at'] = $fileInfo['modified_at'];
+            }
+
+            $handle = fopen($dataFile, 'r');
+            if ($handle) {
+                while (($line = fgets($handle)) !== false) {
+                    $row = $this->parseDataLine($line, (int)$station);
+                    if (!$row) {
+                        continue;
+                    }
+                    $fileInfo['rows']++;
+                    $fileInfo['latest_date'] = $row['yyyymmdd'];
+                }
+                fclose($handle);
+            }
+
+            $info['rows'] += $fileInfo['rows'];
+            if ($fileInfo['latest_date'] !== null && ($info['latest_date'] === null || $fileInfo['latest_date'] > $info['latest_date'])) {
+                $info['latest_date'] = $fileInfo['latest_date'];
+            }
+
+            $info['files'][] = $fileInfo;
+        }
 
         return $info;
     }
 
     public function getDataFileDates(): array {
         $dates = [];
-        if (!is_file($this->dataFile)) {
-            return [];
-        }
 
-        $handle = fopen($this->dataFile, 'r');
-        if (!$handle) {
-            return [];
-        }
-
-        while (($line = fgets($handle)) !== false) {
-            $row = $this->parseDataLine($line);
-            if (!$row) {
+        foreach ($this->getStationIds() as $station) {
+            $dataFile = $this->getStationDataFilePath((int)$station);
+            if (!is_file($dataFile)) {
                 continue;
             }
-            $dates[$row['yyyymmdd']] = true;
+
+            $handle = fopen($dataFile, 'r');
+            if (!$handle) {
+                continue;
+            }
+
+            while (($line = fgets($handle)) !== false) {
+                $row = $this->parseDataLine($line, (int)$station);
+                if (!$row) {
+                    continue;
+                }
+                $dates[$row['stn'] . ':' . $row['yyyymmdd']] = $row['stn'] . ' ' . $row['yyyymmdd'];
+            }
+
+            fclose($handle);
         }
 
-        fclose($handle);
-
-        return array_keys($dates);
+        return array_values($dates);
     }
 
     public function getMissingDates(PDO $db): array {
-        $fileDates = $this->getDataFileDates();
-        if (!$fileDates) {
-            return [];
-        }
-
         if (!$this->databaseTableExists($db)) {
-            return $fileDates;
+            return $this->getDataFileDates();
         }
 
         $existingDates = $this->getExistingDates($db);
         $missingDates = [];
 
-        foreach ($fileDates as $date) {
-            if (!isset($existingDates[$date])) {
-                $missingDates[] = $date;
+        foreach ($this->getStationIds() as $station) {
+            $dataFile = $this->getStationDataFilePath((int)$station);
+            if (!is_file($dataFile)) {
+                continue;
             }
+
+            $handle = fopen($dataFile, 'r');
+            if (!$handle) {
+                continue;
+            }
+
+            while (($line = fgets($handle)) !== false) {
+                $row = $this->parseDataLine($line, (int)$station);
+                if (!$row) {
+                    continue;
+                }
+
+                if (!isset($existingDates[$row['stn']][$row['yyyymmdd']])) {
+                    $missingDates[] = $row['stn'] . ' ' . $row['yyyymmdd'];
+                }
+            }
+
+            fclose($handle);
         }
 
         return $missingDates;
     }
 
-    public function getLastDatabaseDate(PDO $db): ?string {
+    public function getLastDatabaseDate(PDO $db, ?int $station = null): ?string {
         if (!$this->databaseTableExists($db)) {
             return null;
         }
 
-        $stmt = $db->query('SELECT MAX(yyyymmdd) as latest FROM knmi WHERE stn = ' . self::STATION);
-        $latest = $stmt->fetch()['latest'] ?? null;
+        if ($station !== null) {
+            $stmt = $db->prepare('SELECT MAX(yyyymmdd) as latest FROM knmi WHERE stn = :station');
+            $stmt->execute([':station' => $station]);
+            $latest = $stmt->fetch()['latest'] ?? null;
+            return $latest ?: null;
+        }
+
+        $stationIds = implode(',', array_map('intval', $this->getStationIds()));
+        $stmt = $db->query('SELECT MAX(yyyymmdd) as latest FROM knmi WHERE stn IN (' . $stationIds . ')');
+        $latest = $stmt ? ($stmt->fetch()['latest'] ?? null) : null;
 
         return $latest ?: null;
     }
 
-    private function extractDownloadedZip(string $zipFile): array {
+    private function extractDownloadedZip(string $zipFile, int $station): array {
         if (class_exists('ZipArchive')) {
-            return $this->extractWithZipArchive($zipFile);
+            return $this->extractWithZipArchive($zipFile, $station);
         }
 
-        return $this->extractWithBuiltInZipReader($zipFile);
+        return $this->extractWithBuiltInZipReader($zipFile, $station);
     }
 
     private function downloadUrl(string $url, $context) {
@@ -265,11 +352,13 @@ class KnmiDataService {
         return $contents;
     }
 
-    private function downloadDailyTextData(): array {
+    private function downloadDailyTextData(int $station): array {
+        $dataFile = $this->getStationDataFilePath($station);
+        $stationLabel = $this->stationLabel($station);
         $payload = http_build_query([
             'start' => '19010101',
             'end' => date('Ymd'),
-            'stns' => (string) self::STATION,
+            'stns' => (string) $station,
             'vars' => 'ALL'
         ], '', '&');
 
@@ -305,25 +394,26 @@ class KnmiDataService {
             }
         }
 
-        if ($contents === false || !$this->containsKnmiRows($contents)) {
-            return $this->result(false, ['Could not download KNMI text data through script endpoint.']);
+        if ($contents === false || !$this->containsKnmiRows($contents, $station)) {
+            return $this->result(false, ['Could not download KNMI text data through script endpoint for ' . $stationLabel . '.']);
         }
 
-        if (file_put_contents($this->dataFile, $contents, LOCK_EX) === false) {
-            return $this->result(false, ['Could not write KNMI text data file.']);
+        if (file_put_contents($dataFile, $contents, LOCK_EX) === false) {
+            return $this->result(false, ['Could not write KNMI text data file for ' . $stationLabel . '.']);
         }
 
         return [
             'success' => true,
-            'messages' => ['Downloaded KNMI text data through script endpoint.']
+            'messages' => ['Downloaded KNMI text data through script endpoint for ' . $stationLabel . '.'],
+            'files' => [basename($dataFile)]
         ];
     }
 
-    private function containsKnmiRows(string $contents): bool {
-        return preg_match('/^\\s*' . self::STATION . '\\s*,\\s*\\d{8}\\s*,/m', $contents) === 1;
+    private function containsKnmiRows(string $contents, int $station): bool {
+        return preg_match('/^\\s*' . $station . '\\s*,\\s*\\d{8}\\s*,/m', $contents) === 1;
     }
 
-    private function extractWithZipArchive(string $zipFile): array {
+    private function extractWithZipArchive(string $zipFile, int $station): array {
         $zip = new ZipArchive();
         if ($zip->open($zipFile) !== true) {
             return $this->result(false, ['Could not open downloaded ZIP file.']);
@@ -339,12 +429,12 @@ class KnmiDataService {
 
         return [
             'success' => true,
-            'messages' => ['Extracted with ZipArchive: ' . implode(', ', $files)],
-            'files' => $files
+            'messages' => ['Extracted ' . $this->stationLabel($station) . ' with ZipArchive: ' . implode(', ', $files)],
+            'files' => [basename($this->getStationDataFilePath($station))]
         ];
     }
 
-    private function extractWithBuiltInZipReader(string $zipFile): array {
+    private function extractWithBuiltInZipReader(string $zipFile, int $station): array {
         if (!function_exists('gzinflate')) {
             return $this->result(false, ['ZipArchive is unavailable and PHP zlib/gzinflate is unavailable.']);
         }
@@ -354,7 +444,8 @@ class KnmiDataService {
             return $this->result(false, ['Could not read downloaded ZIP file.']);
         }
 
-        $entry = $this->findZipEntry($zipData, basename($this->dataFile));
+        $dataFile = $this->getStationDataFilePath($station);
+        $entry = $this->findZipEntry($zipData, basename($dataFile));
         if (!$entry) {
             return $this->result(false, ['Could not find KNMI text file in downloaded ZIP file.']);
         }
@@ -387,14 +478,14 @@ class KnmiDataService {
             return $this->result(false, ['Unsupported ZIP compression method: ' . $entry['compression']]);
         }
 
-        if (file_put_contents($this->dataFile, $text, LOCK_EX) === false) {
+        if (file_put_contents($dataFile, $text, LOCK_EX) === false) {
             return $this->result(false, ['Could not write extracted KNMI text file.']);
         }
 
         return [
             'success' => true,
-            'messages' => ['Extracted with built-in ZIP fallback: ' . $entry['name']],
-            'files' => [$entry['name']]
+            'messages' => ['Extracted ' . $this->stationLabel($station) . ' with built-in ZIP fallback: ' . $entry['name']],
+            'files' => [basename($dataFile)]
         ];
     }
 
@@ -453,27 +544,36 @@ class KnmiDataService {
 
     private function readRowsMissingFromDatabase(array $existingDates): array {
         $rows = [];
-        $handle = fopen($this->dataFile, 'r');
-        if (!$handle) {
-            return $rows;
-        }
 
-        while (($line = fgets($handle)) !== false) {
-            $row = $this->parseDataLine($line);
-            if (!$row) {
+        foreach ($this->getStationIds() as $station) {
+            $dataFile = $this->getStationDataFilePath((int)$station);
+            if (!is_file($dataFile)) {
                 continue;
             }
 
-            $date = $row['yyyymmdd'];
-            if (isset($existingDates[$date])) {
+            $handle = fopen($dataFile, 'r');
+            if (!$handle) {
                 continue;
             }
 
-            $rows[] = $row;
-            $existingDates[$date] = true;
-        }
+            while (($line = fgets($handle)) !== false) {
+                $row = $this->parseDataLine($line, (int)$station);
+                if (!$row) {
+                    continue;
+                }
 
-        fclose($handle);
+                $stationKey = (string)$row['stn'];
+                $date = $row['yyyymmdd'];
+                if (isset($existingDates[$stationKey][$date])) {
+                    continue;
+                }
+
+                $rows[] = $row;
+                $existingDates[$stationKey][$date] = true;
+            }
+
+            fclose($handle);
+        }
 
         return $rows;
     }
@@ -484,17 +584,32 @@ class KnmiDataService {
         }
 
         $dates = [];
-        $stmt = $db->query('SELECT yyyymmdd FROM knmi WHERE stn = ' . self::STATION);
+        $stationIds = implode(',', array_map('intval', $this->getStationIds()));
+        $stmt = $db->query('SELECT stn, yyyymmdd FROM knmi WHERE stn IN (' . $stationIds . ')');
 
-        while (($date = $stmt->fetchColumn()) !== false) {
-            $dates[$date] = true;
+        while (($row = $stmt->fetch(PDO::FETCH_ASSOC)) !== false) {
+            $station = (string)$row['stn'];
+            $date = (string)$row['yyyymmdd'];
+            if (!isset($dates[$station])) {
+                $dates[$station] = [];
+            }
+            $dates[$station][$date] = true;
         }
 
         return $dates;
     }
 
-    private function parseDataLine(string $line): ?array {
-        if (!preg_match('/^\s*' . self::STATION . '\s*,\s*\d{8}\s*,/', $line)) {
+    private function parseDataLine(string $line, ?int $expectedStation = null): ?array {
+        if (!preg_match('/^\s*(\d+)\s*,\s*\d{8}\s*,/', $line, $matches)) {
+            return null;
+        }
+
+        $station = (int)$matches[1];
+        if ($expectedStation !== null && $station !== $expectedStation) {
+            return null;
+        }
+
+        if (!KnmiStationCatalog::exists($station)) {
             return null;
         }
 
@@ -563,6 +678,43 @@ class KnmiDataService {
                 KEY `station_date` (`stn`, `yyyymmdd`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         ");
+
+        $this->ensureStationDateUniqueIndex($db);
+    }
+
+    private function ensureStationDateUniqueIndex(PDO $db): void {
+        $stmt = $db->query("SHOW INDEX FROM knmi WHERE Key_name = 'station_date_unique'");
+        if ($stmt && $stmt->fetchColumn()) {
+            return;
+        }
+
+        try {
+            $db->exec('ALTER TABLE knmi ADD UNIQUE KEY station_date_unique (`stn`(10), `yyyymmdd`)');
+        } catch (Throwable $e) {
+            error_log('Could not add station_date_unique index: ' . $e->getMessage());
+        }
+    }
+
+    private function getStationDataFilePath(int $station): string {
+        return $this->rootDir . '/etmgeg_' . $station . '.txt';
+    }
+
+    private function getAvailableStationFiles(): array {
+        $files = [];
+
+        foreach ($this->getStationIds() as $station) {
+            $file = $this->getStationDataFilePath((int)$station);
+            if (is_file($file)) {
+                $files[(int)$station] = $file;
+            }
+        }
+
+        return $files;
+    }
+
+    private function stationLabel(int $station): string {
+        $name = KnmiStationCatalog::name($station);
+        return ($name ?: 'Station') . ' (' . $station . ')';
     }
 
     private function databaseTableExists(PDO $db): bool {

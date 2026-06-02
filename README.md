@@ -43,9 +43,30 @@ Error responses use this shape:
 
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
-| `station` | integer | `260` | KNMI station number. The UI defaults to De Bilt. |
+| `station` | integer | `260` | Supported KNMI station number. Use `/api/weather/stations` to list them. The UI defaults to De Bilt. |
 
 Dates must use `YYYY-MM-DD`.
+
+Supported stations:
+
+| Code | Station |
+| --- | --- |
+| `235` | De Kooy Airport |
+| `240` | Schiphol Airport |
+| `260` | De Bilt |
+| `270` | Leeuwarden Airport |
+| `275` | Deelen Airport |
+| `277` | Lauwersoog |
+| `280` | Groningen Airport Eelde |
+| `286` | Nieuw Beerta |
+| `290` | Twenthe Airport |
+| `310` | Vlissingen |
+| `319` | Westdorpe |
+| `344` | Rotterdam Airport |
+| `348` | Cabauw |
+| `350` | Gilze-Rijen Airport |
+| `370` | Eindhoven Airport |
+| `380` | Maastricht Airport |
 
 ## Rate Limit
 
@@ -69,6 +90,14 @@ The defaults can be changed with environment variables:
 | `KNMI_API_RATE_LIMIT_WINDOW_SECONDS` | `60` |
 
 ## Endpoints
+
+### List Supported Stations
+
+```http
+GET /api/weather/stations
+```
+
+Returns the supported KNMI stations and the default station.
 
 ### Get One Day
 
@@ -105,6 +134,7 @@ Possible errors:
 | --- | --- |
 | `400` | `Date parameter required` |
 | `400` | `Invalid date format. Use YYYY-MM-DD` |
+| `400` | `Unsupported station` |
 | `404` | `No data found for the specified date` |
 
 ### Get a Period

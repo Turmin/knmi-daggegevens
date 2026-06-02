@@ -6,7 +6,11 @@ class WeatherAPI {
         this.cacheDuration = 24 * 60 * 60 * 1000; // KNMI day data is refreshed daily
     }
 
-    async fetchWeatherData(date, station = 260, forceRefresh = false) {
+    getDefaultStation() {
+        return typeof DEFAULT_STATION !== 'undefined' ? DEFAULT_STATION : 260;
+    }
+
+    async fetchWeatherData(date, station = this.getDefaultStation(), forceRefresh = false) {
         const cacheKey = `${date}-${station}`;
         const cachedData = this.cache.get(cacheKey);
         
@@ -47,7 +51,7 @@ class WeatherAPI {
         }
     }
 
-    async fetchPeriodData(startDate, endDate, station = 260, forceRefresh = false) {
+    async fetchPeriodData(startDate, endDate, station = this.getDefaultStation(), forceRefresh = false) {
         const cacheKey = `period-${startDate}-${endDate}-${station}`;
         const cachedData = this.cache.get(cacheKey);
         
@@ -88,7 +92,7 @@ class WeatherAPI {
         }
     }
 
-    async fetchMonthlyStats(year, month, station = 260, forceRefresh = false) {
+    async fetchMonthlyStats(year, month, station = this.getDefaultStation(), forceRefresh = false) {
         const cacheKey = `stats-${year}-${month}-${station}`;
         const cachedData = this.cache.get(cacheKey);
         
@@ -129,7 +133,7 @@ class WeatherAPI {
         }
     }
 
-    async fetchDateRange(station = 260, forceRefresh = false) {
+    async fetchDateRange(station = this.getDefaultStation(), forceRefresh = false) {
         const cacheKey = `range-${station}`;
         const cachedData = this.cache.get(cacheKey);
         
@@ -170,7 +174,7 @@ class WeatherAPI {
         }
     }
 
-    async fetchCalendarDayStats(date, station = 260, forceRefresh = false) {
+    async fetchCalendarDayStats(date, station = this.getDefaultStation(), forceRefresh = false) {
         const cacheKey = `calendar-day-${date}-${station}`;
         const cachedData = this.cache.get(cacheKey);
 
@@ -224,7 +228,47 @@ class WeatherAPI {
     }
 
     // Method to preload data for better UX
-    async preloadData(dates, station = 260) {
+    async fetchStations(forceRefresh = false) {
+        const cacheKey = 'stations';
+        const cachedData = this.cache.get(cacheKey);
+
+        if (!forceRefresh && cachedData && Date.now() - cachedData.timestamp < this.cacheDuration) {
+            return cachedData.data;
+        }
+
+        try {
+            const refreshSuffix = forceRefresh ? `?_=${Date.now()}` : '';
+            const response = await fetch(`${this.baseUrl}/stations${refreshSuffix}`, {
+                method: 'GET',
+                cache: forceRefresh ? 'reload' : 'default',
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error?.message || 'API request failed');
+            }
+
+            this.cache.set(cacheKey, {
+                data: result.data,
+                timestamp: Date.now()
+            });
+
+            return result.data;
+        } catch (error) {
+            console.error('Error fetching stations:', error);
+            throw error;
+        }
+    }
+
+    async preloadData(dates, station = this.getDefaultStation()) {
         const promises = dates.map(date => 
             this.fetchWeatherData(date, station).catch(err => {
                 console.warn(`Failed to preload data for ${date}:`, err);
