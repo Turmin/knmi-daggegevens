@@ -23,8 +23,7 @@
         3: 'Wednesday',
         4: 'Thursday',
         5: 'Friday',
-        6: 'Saturday',
-        7: 'Sunday'
+        6: 'Saturday'
     };
 
     function isDigit(value) {
@@ -146,7 +145,10 @@
             if (match) {
                 start = parseInt(match[1], 10);
                 end = parseInt(match[2], 10);
-                return start >= min && end <= max && start <= end;
+                if (start < min || end > max || start > end) {
+                    return false;
+                }
+                return true;
             }
 
             if (!isDigit(segment)) {
@@ -154,7 +156,10 @@
             }
 
             value = parseInt(segment, 10);
-            return value >= min && value <= max;
+            if (value < min || value > max) {
+                return false;
+            }
+            return true;
         });
     }
 
@@ -164,7 +169,7 @@
             [0, 23],
             [1, 31],
             [1, 12],
-            [0, 7]
+            [0, 6]
         ];
 
         return parts.every(function (part, index) {
@@ -175,7 +180,7 @@
     function isEveryWeekdayField(field) {
         var days = {};
 
-        if (field === '*/1' || ['0-6', '0-7', '1-7'].indexOf(field) !== -1) {
+        if (field === '*/1' || field === '0-6') {
             return true;
         }
 
@@ -191,7 +196,11 @@
             }
 
             day = parseInt(segment, 10);
-            days[day === 7 ? 0 : day] = true;
+            if (day < 0 || day > 6) {
+                return false;
+            }
+
+            days[day] = true;
             return true;
         })) {
             return false;

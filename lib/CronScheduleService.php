@@ -304,7 +304,7 @@ class CronScheduleService {
             [0, 23],
             [1, 31],
             [1, 12],
-            [0, 7]
+            [0, 6]
         ];
 
         foreach ($parts as $index => $part) {
@@ -357,7 +357,7 @@ class CronScheduleService {
     }
 
     private static function isEveryWeekdayField(string $field): bool {
-        if ($field === '*/1' || in_array($field, ['0-6', '0-7', '1-7'], true)) {
+        if ($field === '*/1' || $field === '0-6') {
             return true;
         }
 
@@ -368,7 +368,11 @@ class CronScheduleService {
             }
 
             $day = (int)$segment;
-            $days[$day === 7 ? 0 : $day] = true;
+            if ($day < 0 || $day > 6) {
+                return false;
+            }
+
+            $days[$day] = true;
         }
 
         for ($day = 0; $day <= 6; $day++) {
@@ -488,8 +492,7 @@ class CronScheduleService {
             3 => 'Wednesday',
             4 => 'Thursday',
             5 => 'Friday',
-            6 => 'Saturday',
-            7 => 'Sunday'
+            6 => 'Saturday'
         ];
     }
 
@@ -516,7 +519,7 @@ class CronScheduleService {
             [0, 23],
             [1, 31],
             [1, 12],
-            [0, 7]
+            [0, 6]
         ];
 
         foreach ($parts as $index => $part) {
@@ -529,39 +532,7 @@ class CronScheduleService {
     }
 
     private function isValidCronField(string $field, int $min, int $max): bool {
-        foreach (explode(',', $field) as $segment) {
-            if ($segment === '*') {
-                continue;
-            }
-
-            if (preg_match('/^\*\/(\d+)$/', $segment, $match)) {
-                $step = (int)$match[1];
-                if ($step < 1 || $step > $max) {
-                    return false;
-                }
-                continue;
-            }
-
-            if (preg_match('/^(\d+)-(\d+)$/', $segment, $match)) {
-                $start = (int)$match[1];
-                $end = (int)$match[2];
-                if ($start < $min || $end > $max || $start > $end) {
-                    return false;
-                }
-                continue;
-            }
-
-            if (!ctype_digit($segment)) {
-                return false;
-            }
-
-            $value = (int)$segment;
-            if ($value < $min || $value > $max) {
-                return false;
-            }
-        }
-
-        return true;
+        return self::isValidFieldPart($field, $min, $max);
     }
 
     private function isDue(array $job, DateTimeImmutable $now): bool {
@@ -583,6 +554,10 @@ class CronScheduleService {
             return false;
         }
 
+        if (!self::isValidScheduleParts($parts)) {
+            return false;
+        }
+
         $values = [
             (int)$date->format('i'),
             (int)$date->format('G'),
@@ -593,9 +568,6 @@ class CronScheduleService {
 
         foreach ($parts as $index => $field) {
             if (!$this->fieldMatches($field, $values[$index])) {
-                if ($index === 4 && $values[$index] === 0 && $this->fieldMatches($field, 7)) {
-                    continue;
-                }
                 return false;
             }
         }
