@@ -353,7 +353,7 @@ if ($initialWeatherJson === false) {
                         <i class="bi bi-calendar-check"></i>
                         <span data-i18n="dailyData">Daggegevens</span>
                     </a>
-                    <a href="<?php echo h(appAssetPath('yearly.php')); ?>" class="insight-link">
+                    <a href="<?php echo h(appAssetPath('yearly')); ?>" class="insight-link">
                         <i class="bi bi-bar-chart-line"></i>
                         <span data-i18n="yearlyStatistics">Jaarstatistieken</span>
                     </a>
@@ -947,17 +947,6 @@ if ($initialWeatherJson === false) {
                 navigator.serviceWorker.register(<?php echo json_encode(appAssetPath('sw.js'), JSON_UNESCAPED_SLASHES); ?>)
                     .then(function(registration) {
                         console.log('ServiceWorker registration successful');
-                        
-                        // Check for updates
-                        registration.addEventListener('updatefound', () => {
-                            const newWorker = registration.installing;
-                            newWorker.addEventListener('statechange', () => {
-                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                    // New version available
-                                    showUpdateAvailable();
-                                }
-                            });
-                        });
                     })
                     .catch(function(error) {
                         console.log('ServiceWorker registration failed: ', error);
@@ -1015,12 +1004,6 @@ if ($initialWeatherJson === false) {
             deferredPrompt = null;
             hideInstallButton();
         });
-
-        function showUpdateAvailable() {
-            if (window.weatherApp) {
-                window.weatherApp.showMessage(window.weatherApp.t('newVersion'), 'info');
-            }
-        }
 
         // Handle online/offline status
         window.addEventListener('online', function() {
