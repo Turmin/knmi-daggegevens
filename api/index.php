@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="nl">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>KNMI Daggegevens API documentatie</title>
-    <meta name="description" content="Documentatie voor de KNMI Daggegevens JSON API endpoints, parameters, responsevormen en rate limits.">
+    <title>KNMI Daily Data API documentation</title>
+    <meta name="description" content="Documentation for the KNMI Daily Data JSON API endpoints, parameters, response envelopes, and rate limits.">
     <meta name="robots" content="index, follow">
     <link rel="icon" type="image/png" sizes="32x32" href="../icons/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="../icons/favicon-16x16.png">
@@ -286,33 +286,32 @@
     <main class="api-shell">
         <header class="api-header">
             <div class="eyebrow"><i class="bi bi-braces"></i> JSON API</div>
-            <h1>KNMI Daggegevens API documentatie</h1>
+            <h1>KNMI Daily Data API documentation</h1>
             <p class="intro">
-                Publieke endpoints voor historische KNMI daggegevens van meetstation De Bilt. Alle responses zijn JSON en gebruiken dezelfde response envelope.
+                Public endpoints for historical KNMI daily weather data. All responses are JSON and use the same response envelope.
             </p>
             <div class="top-actions">
-                <a class="btn btn-primary btn-api" href="weather.php/range"><i class="bi bi-play-circle"></i> Probeer range endpoint</a>
-                <a class="btn btn-outline-primary btn-api" href="../"><i class="bi bi-house"></i> Terug naar app</a>
+                <a class="btn btn-primary btn-api" href="weather.php/range"><i class="bi bi-play-circle"></i> Try range endpoint</a>
             </div>
         </header>
 
         <div class="doc-layout">
-            <nav class="doc-nav" aria-label="API documentatie">
+            <nav class="doc-nav" aria-label="API documentation">
                 <div>
-                    <a href="#basis"><i class="bi bi-info-circle"></i> Basis</a>
+                    <a href="#basis"><i class="bi bi-info-circle"></i> Basics</a>
                     <a href="#endpoints"><i class="bi bi-list-check"></i> Endpoints</a>
                     <a href="#responses"><i class="bi bi-filetype-json"></i> Responses</a>
                     <a href="#rate-limit"><i class="bi bi-speedometer2"></i> Rate limit</a>
-                    <a href="#velden"><i class="bi bi-table"></i> Velden</a>
+                    <a href="#velden"><i class="bi bi-table"></i> Fields</a>
                 </div>
             </nav>
 
             <div class="doc-content">
                 <section class="doc-section" id="basis">
-                    <h2><i class="bi bi-info-circle"></i> Basis</h2>
-                    <p>Basis-URL:</p>
+                    <h2><i class="bi bi-info-circle"></i> Basics</h2>
+                    <p>Base URL:</p>
                     <pre><code>/api/weather.php</code></pre>
-                    <h3>Algemene query parameters</h3>
+                    <h3>Common query parameters</h3>
                     <div class="table-responsive">
                         <table class="table table-sm">
                             <thead>
@@ -320,7 +319,7 @@
                                     <th>Parameter</th>
                                     <th>Type</th>
                                     <th>Default</th>
-                                    <th>Beschrijving</th>
+                                    <th>Description</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -328,14 +327,14 @@
                                     <td><code>station</code></td>
                                     <td>integer</td>
                                     <td><code>260</code></td>
-                                    <td>KNMI-stationnummer. De app gebruikt De Bilt.</td>
+                                    <td>KNMI station number. The current app defaults to De Bilt.</td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
                     <div class="note mt-3">
                         <i class="bi bi-calendar3"></i>
-                        <span>Datums moeten het formaat <code>YYYY-MM-DD</code> gebruiken.</span>
+                        <span>Dates must use the <code>YYYY-MM-DD</code> format.</span>
                     </div>
                 </section>
 
@@ -345,64 +344,64 @@
                         <article class="endpoint">
                             <div class="endpoint-title">
                                 <span class="method">GET</span>
-                                <strong>Een dag ophalen</strong>
+                                <strong>Get one day</strong>
                             </div>
                             <pre><code>weather.php/day?date=2024-01-15
 weather.php/day?date=2024-01-15&amp;station=260</code></pre>
-                            <p class="mb-0">Geeft een volledig dagrecord terug met temperatuur, wind, neerslag, zon, luchtdruk, zicht, luchtvochtigheid, bewolking en verdamping.</p>
+                            <p class="mb-0">Returns a full daily record with temperature, wind, precipitation, sunshine, pressure, visibility, humidity, cloud cover, and evaporation.</p>
                         </article>
 
                         <article class="endpoint">
                             <div class="endpoint-title">
                                 <span class="method">GET</span>
-                                <strong>Periode ophalen</strong>
+                                <strong>Get a period</strong>
                             </div>
                             <pre><code>weather.php/period?start=2024-01-01&amp;end=2024-01-07
 weather.php/period?start=2024-01-01&amp;end=2024-01-07&amp;station=260</code></pre>
-                            <p class="mb-0">Geeft grafiekvriendelijke dagrecords terug voor een periode.</p>
+                            <p class="mb-0">Returns chart-friendly daily records for a date range.</p>
                         </article>
 
                         <article class="endpoint">
                             <div class="endpoint-title">
                                 <span class="method">GET</span>
-                                <strong>Maandstatistieken</strong>
+                                <strong>Get monthly statistics</strong>
                             </div>
                             <pre><code>weather.php/stats?year=2024&amp;month=1
 weather.php/stats?year=2024&amp;month=1&amp;station=260</code></pre>
-                            <p class="mb-0">Geeft samenvattingen voor een maand terug, zoals temperatuur, neerslag, zon, wind en luchtdruk.</p>
+                            <p class="mb-0">Returns monthly summaries such as temperature, precipitation, sunshine, wind, and pressure.</p>
                         </article>
 
                         <article class="endpoint">
                             <div class="endpoint-title">
                                 <span class="method">GET</span>
-                                <strong>Beschikbare datumbereik</strong>
+                                <strong>Get available date range</strong>
                             </div>
                             <pre><code>weather.php/range
 weather.php/range?station=260</code></pre>
-                            <p class="mb-0">Geeft de eerste en laatste beschikbare datum terug.</p>
+                            <p class="mb-0">Returns the first and last available date.</p>
                         </article>
 
                         <article class="endpoint">
                             <div class="endpoint-title">
                                 <span class="method">GET</span>
-                                <strong>Kalenderdag door de jaren heen</strong>
+                                <strong>Get calendar-day climate stats</strong>
                             </div>
                             <pre><code>weather.php/calendar-day?date=2024-06-02
 weather.php/climate-day?date=2024-06-02</code></pre>
-                            <p class="mb-0">Geeft historische vergelijking voor dezelfde kalenderdag. <code>climate-day</code> is een alias.</p>
+                            <p class="mb-0">Returns a historical comparison for the same calendar day. <code>climate-day</code> is an alias.</p>
                         </article>
                     </div>
                 </section>
 
                 <section class="doc-section" id="responses">
                     <h2><i class="bi bi-filetype-json"></i> Responses</h2>
-                    <h3>Succes</h3>
+                    <h3>Success</h3>
                     <pre><code>{
   "success": true,
   "data": {},
   "timestamp": "2026-06-02T10:00:00+02:00"
 }</code></pre>
-                    <h3>Fout</h3>
+                    <h3>Error</h3>
                     <pre><code>{
   "success": false,
   "error": {
@@ -411,21 +410,21 @@ weather.php/climate-day?date=2024-06-02</code></pre>
   },
   "timestamp": "2026-06-02T10:00:00+02:00"
 }</code></pre>
-                    <h3>Veelvoorkomende foutcodes</h3>
+                    <h3>Common error codes</h3>
                     <div class="table-responsive">
                         <table class="table table-sm">
                             <thead>
                                 <tr>
                                     <th>Status</th>
-                                    <th>Betekenis</th>
+                                    <th>Meaning</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr><td><code>400</code></td><td>Verplichte parameter ontbreekt of datumformaat is ongeldig.</td></tr>
-                                <tr><td><code>404</code></td><td>Endpoint of data voor de gevraagde datum is niet gevonden.</td></tr>
-                                <tr><td><code>405</code></td><td>HTTP-methode wordt niet ondersteund.</td></tr>
-                                <tr><td><code>429</code></td><td>Rate limit overschreden.</td></tr>
-                                <tr><td><code>500</code></td><td>Interne fout of databaseverbinding mislukt.</td></tr>
+                                <tr><td><code>400</code></td><td>A required parameter is missing or the date format is invalid.</td></tr>
+                                <tr><td><code>404</code></td><td>The endpoint or data for the requested date was not found.</td></tr>
+                                <tr><td><code>405</code></td><td>The HTTP method is not supported.</td></tr>
+                                <tr><td><code>429</code></td><td>The rate limit was exceeded.</td></tr>
+                                <tr><td><code>500</code></td><td>Internal error or failed database connection.</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -433,12 +432,12 @@ weather.php/climate-day?date=2024-06-02</code></pre>
 
                 <section class="doc-section" id="rate-limit">
                     <h2><i class="bi bi-speedometer2"></i> Rate limit</h2>
-                    <p>De API wordt per client gelimiteerd voordat de databaseverbinding wordt geopend.</p>
+                    <p>The API is rate limited per client before a database connection is opened.</p>
                     <div class="table-responsive">
                         <table class="table table-sm">
                             <tbody>
-                                <tr><th>Default</th><td><code>120</code> requests per <code>60</code> seconden</td></tr>
-                                <tr><th>Aanpasbaar via</th><td><code>KNMI_API_RATE_LIMIT_REQUESTS</code> en <code>KNMI_API_RATE_LIMIT_WINDOW_SECONDS</code></td></tr>
+                                <tr><th>Default</th><td><code>120</code> requests per <code>60</code> seconds</td></tr>
+                                <tr><th>Configurable through</th><td><code>KNMI_API_RATE_LIMIT_REQUESTS</code> and <code>KNMI_API_RATE_LIMIT_WINDOW_SECONDS</code></td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -448,42 +447,42 @@ weather.php/climate-day?date=2024-06-02</code></pre>
                             <thead>
                                 <tr>
                                     <th>Header</th>
-                                    <th>Beschrijving</th>
+                                    <th>Description</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr><td><code>X-RateLimit-Limit</code></td><td>Maximum requests in het huidige venster.</td></tr>
-                                <tr><td><code>X-RateLimit-Remaining</code></td><td>Requests over in het huidige venster.</td></tr>
-                                <tr><td><code>X-RateLimit-Reset</code></td><td>Unix timestamp waarop het venster reset.</td></tr>
-                                <tr><td><code>Retry-After</code></td><td>Aantal seconden wachten; alleen bij <code>429</code>.</td></tr>
+                                <tr><td><code>X-RateLimit-Limit</code></td><td>Maximum requests in the current window.</td></tr>
+                                <tr><td><code>X-RateLimit-Remaining</code></td><td>Requests left in the current window.</td></tr>
+                                <tr><td><code>X-RateLimit-Reset</code></td><td>Unix timestamp when the window resets.</td></tr>
+                                <tr><td><code>Retry-After</code></td><td>Seconds to wait; only sent with <code>429</code>.</td></tr>
                             </tbody>
                         </table>
                     </div>
                 </section>
 
                 <section class="doc-section" id="velden">
-                    <h2><i class="bi bi-table"></i> Belangrijkste velden</h2>
+                    <h2><i class="bi bi-table"></i> Main fields</h2>
                     <div class="table-responsive">
                         <table class="table table-sm">
                             <thead>
                                 <tr>
-                                    <th>Veld</th>
-                                    <th>Beschrijving</th>
+                                    <th>Field</th>
+                                    <th>Description</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr><td><code>temperature</code></td><td>Gemiddelde, minimum, maximum en bijbehorende uurvakken in °C.</td></tr>
-                                <tr><td><code>wind</code></td><td>Windrichting, gemiddelde snelheid, maxima, windstoten en Beaufort. Snelheden zijn km/h.</td></tr>
-                                <tr><td><code>precipitation</code></td><td>Hoeveelheid en duur. Hoeveelheden zijn mm, duur is uren.</td></tr>
-                                <tr><td><code>sunshine</code></td><td>Zonneschijnduur, percentage en globale straling. Globale straling is J/cm².</td></tr>
-                                <tr><td><code>pressure</code></td><td>Gemiddelde, minimum en maximum luchtdruk in hPa.</td></tr>
-                                <tr><td><code>humidity</code></td><td>Gemiddelde, minimum en maximum relatieve luchtvochtigheid.</td></tr>
-                                <tr><td><code>visibility</code></td><td>Minimum en maximum zichtwaarden.</td></tr>
-                                <tr><td><code>evaporation</code></td><td>Verdamping in mm.</td></tr>
+                                <tr><td><code>temperature</code></td><td>Average, minimum, maximum, and related hour values in °C.</td></tr>
+                                <tr><td><code>wind</code></td><td>Wind direction, average speed, maxima, gusts, and Beaufort. Speeds are km/h.</td></tr>
+                                <tr><td><code>precipitation</code></td><td>Amount and duration. Amounts are mm, duration is hours.</td></tr>
+                                <tr><td><code>sunshine</code></td><td>Sunshine duration, percentage, and global radiation. Global radiation is J/cm².</td></tr>
+                                <tr><td><code>pressure</code></td><td>Average, minimum, and maximum pressure in hPa.</td></tr>
+                                <tr><td><code>humidity</code></td><td>Average, minimum, and maximum relative humidity.</td></tr>
+                                <tr><td><code>visibility</code></td><td>Minimum and maximum visibility values.</td></tr>
+                                <tr><td><code>evaporation</code></td><td>Evaporation in mm.</td></tr>
                             </tbody>
                         </table>
                     </div>
-                    <p class="footer-link mb-0">De ruwe API blijft beschikbaar via <a href="weather.php">weather.php</a>.</p>
+                    <p class="footer-link mb-0">The raw API remains available through <a href="weather.php">weather.php</a>.</p>
                 </section>
             </div>
         </div>
