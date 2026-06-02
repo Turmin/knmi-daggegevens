@@ -938,7 +938,7 @@ if ($initialWeatherJson === false) {
 
     <!-- JavaScript Configuration -->
     <script>
-        const API_BASE_URL = 'api/weather.php';
+        const API_BASE_URL = 'api/weather';
         const FIRST_DATE = '<?php echo h($firstDate); ?>';
         const LAST_DATE = '<?php echo h($lastDate); ?>';
         const DEFAULT_DATE = '<?php echo h($defaultDate); ?>';

@@ -291,26 +291,26 @@
                 Public endpoints for historical KNMI daily weather data. All responses are JSON and use the same response envelope.
             </p>
             <div class="top-actions">
-                <a class="btn btn-primary btn-api" href="weather.php/range"><i class="bi bi-play-circle"></i> Try range endpoint</a>
+                <a class="btn btn-primary btn-api" href="weather/range"><i class="bi bi-play-circle"></i> Try range endpoint</a>
             </div>
         </header>
 
         <div class="doc-layout">
             <nav class="doc-nav" aria-label="API documentation">
                 <div>
-                    <a href="#basis"><i class="bi bi-info-circle"></i> Basics</a>
+                    <a href="#basics"><i class="bi bi-info-circle"></i> Basics</a>
                     <a href="#endpoints"><i class="bi bi-list-check"></i> Endpoints</a>
                     <a href="#responses"><i class="bi bi-filetype-json"></i> Responses</a>
                     <a href="#rate-limit"><i class="bi bi-speedometer2"></i> Rate limit</a>
-                    <a href="#velden"><i class="bi bi-table"></i> Fields</a>
+                    <a href="#fields"><i class="bi bi-table"></i> Fields</a>
                 </div>
             </nav>
 
             <div class="doc-content">
-                <section class="doc-section" id="basis">
+                <section class="doc-section" id="basics">
                     <h2><i class="bi bi-info-circle"></i> Basics</h2>
                     <p>Base URL:</p>
-                    <pre><code>/api/weather.php</code></pre>
+                    <pre><code>/api/weather</code></pre>
                     <h3>Common query parameters</h3>
                     <div class="table-responsive">
                         <table class="table table-sm">
@@ -346,8 +346,8 @@
                                 <span class="method">GET</span>
                                 <strong>Get one day</strong>
                             </div>
-                            <pre><code>weather.php/day?date=2024-01-15
-weather.php/day?date=2024-01-15&amp;station=260</code></pre>
+                            <pre><code>/api/weather/day?date=2024-01-15
+/api/weather/day?date=2024-01-15&amp;station=260</code></pre>
                             <p class="mb-0">Returns a full daily record with temperature, wind, precipitation, sunshine, pressure, visibility, humidity, cloud cover, and evaporation.</p>
                         </article>
 
@@ -356,8 +356,8 @@ weather.php/day?date=2024-01-15&amp;station=260</code></pre>
                                 <span class="method">GET</span>
                                 <strong>Get a period</strong>
                             </div>
-                            <pre><code>weather.php/period?start=2024-01-01&amp;end=2024-01-07
-weather.php/period?start=2024-01-01&amp;end=2024-01-07&amp;station=260</code></pre>
+                            <pre><code>/api/weather/period?start=2024-01-01&amp;end=2024-01-07
+/api/weather/period?start=2024-01-01&amp;end=2024-01-07&amp;station=260</code></pre>
                             <p class="mb-0">Returns chart-friendly daily records for a date range.</p>
                         </article>
 
@@ -366,8 +366,8 @@ weather.php/period?start=2024-01-01&amp;end=2024-01-07&amp;station=260</code></p
                                 <span class="method">GET</span>
                                 <strong>Get monthly statistics</strong>
                             </div>
-                            <pre><code>weather.php/stats?year=2024&amp;month=1
-weather.php/stats?year=2024&amp;month=1&amp;station=260</code></pre>
+                            <pre><code>/api/weather/stats?year=2024&amp;month=1
+/api/weather/stats?year=2024&amp;month=1&amp;station=260</code></pre>
                             <p class="mb-0">Returns monthly summaries such as temperature, precipitation, sunshine, wind, and pressure.</p>
                         </article>
 
@@ -376,8 +376,8 @@ weather.php/stats?year=2024&amp;month=1&amp;station=260</code></pre>
                                 <span class="method">GET</span>
                                 <strong>Get available date range</strong>
                             </div>
-                            <pre><code>weather.php/range
-weather.php/range?station=260</code></pre>
+                            <pre><code>/api/weather/range
+/api/weather/range?station=260</code></pre>
                             <p class="mb-0">Returns the first and last available date.</p>
                         </article>
 
@@ -386,8 +386,8 @@ weather.php/range?station=260</code></pre>
                                 <span class="method">GET</span>
                                 <strong>Get calendar-day climate stats</strong>
                             </div>
-                            <pre><code>weather.php/calendar-day?date=2024-06-02
-weather.php/climate-day?date=2024-06-02</code></pre>
+                            <pre><code>/api/weather/calendar-day?date=2024-06-02
+/api/weather/climate-day?date=2024-06-02</code></pre>
                             <p class="mb-0">Returns a historical comparison for the same calendar day. <code>climate-day</code> is an alias.</p>
                         </article>
                     </div>
@@ -460,7 +460,7 @@ weather.php/climate-day?date=2024-06-02</code></pre>
                     </div>
                 </section>
 
-                <section class="doc-section" id="velden">
+                <section class="doc-section" id="fields">
                     <h2><i class="bi bi-table"></i> Main fields</h2>
                     <div class="table-responsive">
                         <table class="table table-sm">
@@ -482,7 +482,7 @@ weather.php/climate-day?date=2024-06-02</code></pre>
                             </tbody>
                         </table>
                     </div>
-                    <p class="footer-link mb-0">The raw API remains available through <a href="weather.php">weather.php</a>.</p>
+                    <p class="footer-link mb-0">The underlying file remains available through <a href="weather.php">api/weather.php</a>.</p>
                 </section>
             </div>
         </div>

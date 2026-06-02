@@ -1,16 +1,18 @@
 # KNMI Weather Data API
 
-This project exposes historical KNMI daily weather data through `api/weather.php`.
+This project exposes historical KNMI daily weather data through `/api/weather`.
 All API responses are JSON.
 
 ## Base URL
 
 ```text
-/api/weather.php
+/api/weather
 ```
 
 If the application is installed in a subdirectory, prefix the examples with that
 directory.
+
+The underlying PHP file remains available as `/api/weather.php`.
 
 ## Response Envelope
 
@@ -71,8 +73,8 @@ The defaults can be changed with environment variables:
 ### Get One Day
 
 ```http
-GET /api/weather.php/day?date=2024-01-15
-GET /api/weather.php/day?date=2024-01-15&station=260
+GET /api/weather/day?date=2024-01-15
+GET /api/weather/day?date=2024-01-15&station=260
 ```
 
 Required parameters:
@@ -108,8 +110,8 @@ Possible errors:
 ### Get a Period
 
 ```http
-GET /api/weather.php/period?start=2024-01-01&end=2024-01-07
-GET /api/weather.php/period?start=2024-01-01&end=2024-01-07&station=260
+GET /api/weather/period?start=2024-01-01&end=2024-01-07
+GET /api/weather/period?start=2024-01-01&end=2024-01-07&station=260
 ```
 
 Required parameters:
@@ -141,8 +143,8 @@ Possible errors:
 ### Get Monthly Statistics
 
 ```http
-GET /api/weather.php/stats?year=2024&month=1
-GET /api/weather.php/stats?year=2024&month=1&station=260
+GET /api/weather/stats?year=2024&month=1
+GET /api/weather/stats?year=2024&month=1&station=260
 ```
 
 Required parameters:
@@ -175,8 +177,8 @@ Possible errors:
 ### Get Available Date Range
 
 ```http
-GET /api/weather.php/range
-GET /api/weather.php/range?station=260
+GET /api/weather/range
+GET /api/weather/range?station=260
 ```
 
 Returns:
@@ -189,13 +191,13 @@ Returns:
 ## Other Requests
 
 ```http
-GET /api/weather.php
+GET /api/weather
 ```
 
 Returns `400` with `Endpoint required`. Use one of the endpoint paths above.
 
 ```http
-OPTIONS /api/weather.php
+OPTIONS /api/weather
 ```
 
 Used for CORS preflight requests. The API returns `200` without a JSON body.
