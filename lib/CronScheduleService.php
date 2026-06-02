@@ -52,16 +52,16 @@ class CronScheduleService {
         $sentence = self::describeTimeFields($minute, $hour);
         $details = [];
 
+        if ($weekday !== '*' && !self::isEveryWeekdayField($weekday)) {
+            $details[] = 'on ' . self::describeField($weekday, self::weekdayNames());
+        }
+
         if ($day !== '*') {
             $details[] = 'on day ' . self::describeField($day) . ' of the month';
         }
 
         if ($month !== '*') {
-            $details[] = 'in ' . self::describeField($month, self::monthNames());
-        }
-
-        if ($weekday !== '*' && !self::isEveryWeekdayField($weekday)) {
-            $details[] = 'on ' . self::describeField($weekday, self::weekdayNames());
+            $details[] = self::describeMonthField($month);
         }
 
         if (!$details && preg_match('/^at \d{2}:\d{2}$/', $sentence)) {
@@ -430,24 +430,51 @@ class CronScheduleService {
             return 'every';
         }
 
-        if (preg_match('/^\*\/(\d+)$/', $field, $match)) {
-            return 'every ' . (int)$match[1];
-        }
-
-        if (preg_match('/^(\d+)-(\d+)$/', $field, $match)) {
-            return self::fieldValue((int)$match[1], $names) . ' through ' . self::fieldValue((int)$match[2], $names);
-        }
-
         if (strpos($field, ',') !== false) {
             $values = [];
             foreach (explode(',', $field) as $value) {
-                $values[] = ctype_digit($value) ? self::fieldValue((int)$value, $names) : $value;
+                $values[] = self::describeFieldSegment($value, $names);
             }
 
             return self::joinWords($values);
         }
 
-        return ctype_digit($field) ? self::fieldValue((int)$field, $names) : $field;
+        return self::describeFieldSegment($field, $names);
+    }
+
+    private static function describeFieldSegment(string $segment, array $names = []): string {
+        if (preg_match('/^\*\/(\d+)$/', $segment, $match)) {
+            return 'every ' . (int)$match[1];
+        }
+
+        if (preg_match('/^(\d+)-(\d+)$/', $segment, $match)) {
+            return self::fieldValue((int)$match[1], $names) . ' through ' . self::fieldValue((int)$match[2], $names);
+        }
+
+        return ctype_digit($segment) ? self::fieldValue((int)$segment, $names) : $segment;
+    }
+
+    private static function describeMonthField(string $field): string {
+        $segments = [];
+        $hasNamedMonth = false;
+
+        foreach (explode(',', $field) as $segment) {
+            if (preg_match('/^(\d+)-(\d+)$/', $segment, $match)) {
+                $segments[] = 'every month from ' . self::fieldValue((int)$match[1], self::monthNames()) . ' through ' . self::fieldValue((int)$match[2], self::monthNames());
+                continue;
+            }
+
+            if (preg_match('/^\*\/(\d+)$/', $segment, $match)) {
+                $segments[] = 'every ' . (int)$match[1] . ' months';
+                continue;
+            }
+
+            $segments[] = self::describeFieldSegment($segment, self::monthNames());
+            $hasNamedMonth = true;
+        }
+
+        $description = self::joinWords($segments);
+        return $hasNamedMonth ? 'in ' . $description : $description;
     }
 
     private static function fieldValue(int $value, array $names = []): string {

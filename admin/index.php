@@ -535,7 +535,7 @@ $activity = array_reverse($_SESSION['admin_activity'] ?? []);
                             <h2 class="h5 mb-1"><i class="bi bi-clock-history text-primary me-2"></i>Cron schedules</h2>
                             <div class="small text-muted">Database-managed jobs. Run <code>cron.php</code> every minute from one server cron.</div>
                             <div class="small text-muted mt-1">
-                                Schedule fields: <code>minute</code> <code>hour</code> <code>day</code> <code>month</code> <code>weekday</code> <span class="text-nowrap">(0=Sunday, 1=Monday ... 6=Saturday)</span>
+                                Schedule fields: <code>minute</code> <code>hour</code> <code>day</code> <code>month</code> <code>weekday</code> (0=Sunday, 1=Monday ... 6=Saturday)
                             </div>
                         </div>
                         <div class="text-lg-end small">

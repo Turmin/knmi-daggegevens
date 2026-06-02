@@ -48,29 +48,53 @@
     }
 
     function describeField(field, names) {
-        var match;
-
         if (field === '*') {
             return 'every';
         }
 
-        match = field.match(/^\*\/(\d+)$/);
+        if (field.indexOf(',') !== -1) {
+            return joinWords(field.split(',').map(function (value) {
+                return describeFieldSegment(value, names || {});
+            }));
+        }
+
+        return describeFieldSegment(field, names || {});
+    }
+
+    function describeFieldSegment(segment, names) {
+        var match = segment.match(/^\*\/(\d+)$/);
+
         if (match) {
             return 'every ' + parseInt(match[1], 10);
         }
 
-        match = field.match(/^(\d+)-(\d+)$/);
+        match = segment.match(/^(\d+)-(\d+)$/);
         if (match) {
             return fieldValue(parseInt(match[1], 10), names || {}) + ' through ' + fieldValue(parseInt(match[2], 10), names || {});
         }
 
-        if (field.indexOf(',') !== -1) {
-            return joinWords(field.split(',').map(function (value) {
-                return isDigit(value) ? fieldValue(parseInt(value, 10), names || {}) : value;
-            }));
-        }
+        return isDigit(segment) ? fieldValue(parseInt(segment, 10), names || {}) : segment;
+    }
 
-        return isDigit(field) ? fieldValue(parseInt(field, 10), names || {}) : field;
+    function describeMonthField(field) {
+        var hasNamedMonth = false;
+        var segments = field.split(',').map(function (segment) {
+            var match = segment.match(/^(\d+)-(\d+)$/);
+
+            if (match) {
+                return 'every month from ' + fieldValue(parseInt(match[1], 10), monthNames) + ' through ' + fieldValue(parseInt(match[2], 10), monthNames);
+            }
+
+            match = segment.match(/^\*\/(\d+)$/);
+            if (match) {
+                return 'every ' + parseInt(match[1], 10) + ' months';
+            }
+
+            hasNamedMonth = true;
+            return describeFieldSegment(segment, monthNames);
+        });
+
+        return (hasNamedMonth ? 'in ' : '') + joinWords(segments);
     }
 
     function describeHourWindow(hour) {
@@ -257,16 +281,16 @@
 
         sentence = describeTimeFields(minute, hour);
 
+        if (weekday !== '*' && !isEveryWeekdayField(weekday)) {
+            details.push('on ' + describeField(weekday, weekdayNames));
+        }
+
         if (day !== '*') {
             details.push('on day ' + describeField(day) + ' of the month');
         }
 
         if (month !== '*') {
-            details.push('in ' + describeField(month, monthNames));
-        }
-
-        if (weekday !== '*' && !isEveryWeekdayField(weekday)) {
-            details.push('on ' + describeField(weekday, weekdayNames));
+            details.push(describeMonthField(month));
         }
 
         if (!details.length && /^at \d{2}:\d{2}$/.test(sentence)) {
