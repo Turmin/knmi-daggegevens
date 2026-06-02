@@ -440,7 +440,7 @@ if ($initialWeatherJson === false) {
                         <i class="bi bi-calendar-check"></i>
                         <span data-i18n="dailyData">Daggegevens</span>
                     </a>
-                    <a href="<?php echo h(appAssetPath('yearly.php')); ?>" class="insight-link">
+                    <a href="<?php echo h(appAssetPath('yearly')); ?>" class="insight-link">
                         <i class="bi bi-bar-chart-line"></i>
                         <span data-i18n="yearlyStatistics">Jaarstatistieken</span>
                     </a>
@@ -1043,26 +1043,6 @@ if ($initialWeatherJson === false) {
         </div>
     </div>
 
-    <!-- PWA Install Help Modal -->
-    <div class="modal fade" id="installPwaModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" data-i18n="installHelpTitle">App installeren</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" data-i18n-aria-label="close"></button>
-                </div>
-                <div class="modal-body">
-                    <p data-i18n="installHelpIntro">Gebruik de browseroptie om KNMI Daggegevens op je beginscherm te zetten.</p>
-                    <ul class="pwa-install-steps">
-                        <li data-i18n="installHelpSecure">Open de site op mobiel via HTTPS; PWA-installatie werkt niet via een gewoon LAN-adres zoals http://192.168.x.x.</li>
-                        <li data-i18n="installHelpIos">iPhone of iPad: open Safari, tik op Delen en kies Zet op beginscherm.</li>
-                        <li data-i18n="installHelpAndroid">Android: open Chrome, tik op het menu en kies App installeren of Toevoegen aan startscherm.</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- JavaScript Configuration -->
     <script>
         const API_BASE_URL = 'api/weather.php';
@@ -1113,24 +1093,10 @@ if ($initialWeatherJson === false) {
         // PWA Install Prompt
         let deferredPrompt;
         const installPwaButton = document.getElementById('installPwaButton');
-        const installPwaModal = document.getElementById('installPwaModal');
 
         function isStandaloneDisplay() {
             return window.navigator.standalone === true
                 || window.matchMedia('(display-mode: standalone)').matches;
-        }
-
-        function isIosDevice() {
-            return /iphone|ipad|ipod/i.test(window.navigator.userAgent)
-                || (window.navigator.platform === 'MacIntel' && window.navigator.maxTouchPoints > 1);
-        }
-
-        function isLocalSecureException() {
-            return ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
-        }
-
-        function shouldShowInstallFallback() {
-            return isIosDevice() || (!window.isSecureContext && !isLocalSecureException());
         }
 
         function showInstallButton() {
@@ -1148,30 +1114,16 @@ if ($initialWeatherJson === false) {
             }
         }
 
-        function showInstallInstructions() {
-            if (installPwaModal && typeof bootstrap !== 'undefined') {
-                new bootstrap.Modal(installPwaModal).show();
-            }
-        }
-
-        function showInstallFallbackWhenNeeded() {
-            if (shouldShowInstallFallback()) {
-                showInstallButton();
-            }
-        }
-
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
             showInstallButton();
         });
 
-        window.addEventListener('load', showInstallFallbackWhenNeeded);
-
         if (installPwaButton) {
             installPwaButton.addEventListener('click', () => {
                 if (!deferredPrompt) {
-                    showInstallInstructions();
+                    hideInstallButton();
                     return;
                 }
 

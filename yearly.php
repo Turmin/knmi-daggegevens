@@ -267,7 +267,7 @@ $average = $rainSummaryRows ? round($total / count($rainSummaryRows), 1) : null;
 $downloadFilename = $firstYear && $lastYear
     ? 'yearly-statistics-' . $firstYear . '-' . $lastYear . '.png'
     : 'yearly-statistics-chart.png';
-$canonicalUrl = siteBaseUrl() . '/yearly.php';
+$canonicalUrl = siteBaseUrl() . '/yearly';
 $faviconIcoHref = appAssetPath('icons/favicon.ico');
 $favicon16Href = appAssetPath('icons/favicon-16x16.png');
 $favicon32Href = appAssetPath('icons/favicon-32x32.png');
@@ -365,7 +365,7 @@ $manifestHref = appAssetPath('manifest.json');
                         <i class="bi bi-calendar-check"></i>
                         <span data-i18n="dailyData">Daggegevens</span>
                     </a>
-                    <a href="<?php echo h(appAssetPath('yearly.php')); ?>" class="insight-link active" aria-current="page">
+                    <a href="<?php echo h(appAssetPath('yearly')); ?>" class="insight-link active" aria-current="page">
                         <i class="bi bi-bar-chart-line"></i>
                         <span data-i18n="yearlyStatistics">Jaarstatistieken</span>
                     </a>
@@ -554,25 +554,6 @@ $manifestHref = appAssetPath('manifest.json');
                 </div>
             </div>
         </footer>
-    </div>
-
-    <div class="modal fade" id="installPwaModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" data-i18n="installHelpTitle">App installeren</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" data-i18n-aria-label="close"></button>
-                </div>
-                <div class="modal-body">
-                    <p data-i18n="installHelpIntro">Gebruik de browseroptie om KNMI Daggegevens op je beginscherm te zetten.</p>
-                    <ul class="pwa-install-steps">
-                        <li data-i18n="installHelpSecure">Open de site op mobiel via HTTPS; PWA-installatie werkt niet via een gewoon LAN-adres zoals http://192.168.x.x.</li>
-                        <li data-i18n="installHelpIos">iPhone of iPad: open Safari, tik op Delen en kies Zet op beginscherm.</li>
-                        <li data-i18n="installHelpAndroid">Android: open Chrome, tik op het menu en kies App installeren of Toevoegen aan startscherm.</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
     </div>
 
     <script src="js/app-i18n.js?v=<?php echo filemtime(__DIR__ . '/js/app-i18n.js'); ?>"></script>
@@ -962,24 +943,10 @@ $manifestHref = appAssetPath('manifest.json');
     <script>
         let deferredPrompt;
         const installPwaButton = document.getElementById('installPwaButton');
-        const installPwaModal = document.getElementById('installPwaModal');
 
         function isStandaloneDisplay() {
             return window.navigator.standalone === true
                 || window.matchMedia('(display-mode: standalone)').matches;
-        }
-
-        function isIosDevice() {
-            return /iphone|ipad|ipod/i.test(window.navigator.userAgent)
-                || (window.navigator.platform === 'MacIntel' && window.navigator.maxTouchPoints > 1);
-        }
-
-        function isLocalSecureException() {
-            return ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
-        }
-
-        function shouldShowInstallFallback() {
-            return isIosDevice() || (!window.isSecureContext && !isLocalSecureException());
         }
 
         function showInstallButton() {
@@ -997,30 +964,16 @@ $manifestHref = appAssetPath('manifest.json');
             }
         }
 
-        function showInstallInstructions() {
-            if (installPwaModal && typeof bootstrap !== 'undefined') {
-                new bootstrap.Modal(installPwaModal).show();
-            }
-        }
-
-        function showInstallFallbackWhenNeeded() {
-            if (shouldShowInstallFallback()) {
-                showInstallButton();
-            }
-        }
-
         window.addEventListener('beforeinstallprompt', (event) => {
             event.preventDefault();
             deferredPrompt = event;
             showInstallButton();
         });
 
-        window.addEventListener('load', showInstallFallbackWhenNeeded);
-
         if (installPwaButton) {
             installPwaButton.addEventListener('click', () => {
                 if (!deferredPrompt) {
-                    showInstallInstructions();
+                    hideInstallButton();
                     return;
                 }
 

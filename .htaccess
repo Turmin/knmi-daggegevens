@@ -8,7 +8,7 @@ AddType image/x-icon .ico
 
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^yearly/?$ yearly.php [L,QSA]
+RewriteRule ^yearly$ yearly.php [L,QSA]
 
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d

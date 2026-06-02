@@ -752,15 +752,6 @@ a {
     color: var(--text-muted);
 }
 
-.pwa-install-steps {
-    margin-bottom: 0;
-    padding-left: 1.25rem;
-}
-
-.pwa-install-steps li + li {
-    margin-top: 0.5rem;
-}
-
 /* Responsive Styles */
 @media (max-width: 768px) {
     .main-container {
