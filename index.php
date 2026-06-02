@@ -186,87 +186,6 @@ function getDocumentLinks() {
     return $documents;
 }
 
-function getFaqItems($language = 'nl') {
-    $items = [
-        [
-            'question' => [
-                'nl' => 'Welke KNMI-gegevens toont deze website?',
-                'en' => 'Which KNMI data does this website show?'
-            ],
-            'answer' => [
-                'nl' => 'Deze website toont historische KNMI-daggegevens voor meetstation De Bilt, waaronder temperatuur, wind, neerslag, zonneschijnduur, luchtdruk, zicht, luchtvochtigheid, bewolking en verdamping.',
-                'en' => 'This website shows historical KNMI daily data for the De Bilt weather station, including temperature, wind, precipitation, sunshine duration, air pressure, visibility, humidity, cloud cover, and evaporation.'
-            ]
-        ],
-        [
-            'question' => [
-                'nl' => 'Hoe actueel zijn de gegevens?',
-                'en' => 'How current is the data?'
-            ],
-            'answer' => [
-                'nl' => 'De pagina gebruikt de laatst beschikbare dag in de database. In de footer staat het beschikbare datumbereik; vandaag wordt pas getoond wanneer die dag in de KNMI-data aanwezig is.',
-                'en' => 'The page uses the latest available day in the database. The footer shows the available date range; today is only shown once that day is available in the KNMI data.'
-            ]
-        ],
-        [
-            'question' => [
-                'nl' => 'Kan ik dagen met elkaar vergelijken?',
-                'en' => 'Can I compare days with each other?'
-            ],
-            'answer' => [
-                'nl' => 'Ja. Kies een datum en schakel de vergelijkingsmodus in om een tweede datum naast de primaire dag te bekijken.',
-                'en' => 'Yes. Choose a date and enable comparison mode to view a second date next to the primary day.'
-            ]
-        ],
-        [
-            'question' => [
-                'nl' => 'Kan ik de website als app installeren?',
-                'en' => 'Can I install the website as an app?'
-            ],
-            'answer' => [
-                'nl' => 'Ja, op apparaten met een ondersteunde browser kun je de site als PWA installeren. Op iPhone en iPad gebruik je in Safari de deelknop en kies je Zet op beginscherm. Op Android verschijnt de browseroptie om de app te installeren zodra de site via HTTPS wordt geopend.',
-                'en' => 'Yes, on devices with a supported browser you can install the site as a PWA. On iPhone and iPad, use Safari\'s share button and choose Add to Home Screen. On Android, the browser option to install the app appears once the site is opened over HTTPS.'
-            ]
-        ]
-    ];
-
-    return array_map(function ($item) use ($language) {
-        return [
-            'question' => $item['question'][$language] ?? $item['question']['nl'],
-            'answer' => $item['answer'][$language] ?? $item['answer']['nl']
-        ];
-    }, $items);
-}
-
-function buildFaqJsonLd(array $faqItems, $canonicalUrl) {
-    if (!$faqItems) {
-        return null;
-    }
-
-    $mainEntity = array_map(function ($item) {
-        return [
-            '@type' => 'Question',
-            'name' => $item['question'],
-            'acceptedAnswer' => [
-                '@type' => 'Answer',
-                'text' => $item['answer']
-            ]
-        ];
-    }, $faqItems);
-
-    $json = json_encode(
-        [
-            '@context' => 'https://schema.org',
-            '@type' => 'FAQPage',
-            '@id' => $canonicalUrl . '#faq',
-            'mainEntity' => $mainEntity
-        ],
-        JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT
-    );
-
-    return $json === false ? null : $json;
-}
-
 $requestedDate = getRequestedDate();
 $datePathFromRequest = getDatePathFromRequest();
 $weatherData = null;
@@ -328,9 +247,6 @@ $pageTitle = $pageLanguage === 'en'
     : 'Het weer op ' . $pageDate . ' - KNMI Daggegevens';
 $pageDescription = weatherMetaDescription($initialWeatherData, $pageDate, $pageLanguage);
 $documents = getDocumentLinks();
-$showFaq = $isHomeRequest;
-$faqItems = $showFaq ? getFaqItems($pageLanguage) : [];
-$faqJsonLd = buildFaqJsonLd($faqItems, $canonicalUrl);
 $faviconIcoHref = appAssetPath('icons/favicon.ico');
 $favicon16Href = appAssetPath('icons/favicon-16x16.png');
 $favicon32Href = appAssetPath('icons/favicon-32x32.png');
@@ -363,9 +279,6 @@ if ($initialWeatherJson === false) {
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="description" content="<?php echo h($pageDescription); ?>">
     <meta name="keywords" content="knmi, weer, weerstatistieken, temperatuur, neerslag, verdamping, zonneschijnduur, straling, bedekkingsgraad, zicht, luchtvochtigheid">
-    <?php if ($faqJsonLd): ?>
-    <script type="application/ld+json"><?php echo $faqJsonLd; ?></script>
-    <?php endif; ?>
     <script>
         (function() {
             const isStandalone = window.navigator.standalone === true
@@ -887,44 +800,6 @@ if ($initialWeatherJson === false) {
                 </div>
             </div>
         </div>
-
-        <?php if ($showFaq && $faqItems): ?>
-        <!-- FAQ -->
-        <div class="row mt-4">
-            <div class="col-12">
-                <section class="weather-card faq-card" id="faq" aria-labelledby="faqTitle">
-                    <div class="card-header">
-                        <h4 class="mb-0" id="faqTitle">
-                            <i class="bi bi-question-circle me-2"></i><span data-i18n="faqTitle">Veelgestelde vragen</span>
-                        </h4>
-                    </div>
-                    <div class="card-body">
-                        <div class="accordion faq-accordion" id="faqAccordion">
-                            <?php foreach ($faqItems as $index => $faqItem): ?>
-                                <?php
-                                $questionKey = 'faqQuestion' . ($index + 1);
-                                $answerKey = 'faqAnswer' . ($index + 1);
-                                $headingId = 'faqHeading' . $index;
-                                $answerId = 'faqAnswerPanel' . $index;
-                                $isOpen = $index === 0;
-                                ?>
-                                <div class="accordion-item">
-                                    <h5 class="accordion-header" id="<?php echo h($headingId); ?>">
-                                        <button class="accordion-button <?php echo $isOpen ? '' : 'collapsed'; ?>" type="button" data-bs-toggle="collapse" data-bs-target="#<?php echo h($answerId); ?>" aria-expanded="<?php echo $isOpen ? 'true' : 'false'; ?>" aria-controls="<?php echo h($answerId); ?>">
-                                            <span data-i18n="<?php echo h($questionKey); ?>"><?php echo h($faqItem['question']); ?></span>
-                                        </button>
-                                    </h5>
-                                    <div id="<?php echo h($answerId); ?>" class="accordion-collapse collapse <?php echo $isOpen ? 'show' : ''; ?>" aria-labelledby="<?php echo h($headingId); ?>" data-bs-parent="#faqAccordion">
-                                        <div class="accordion-body" data-i18n="<?php echo h($answerKey); ?>"><?php echo h($faqItem['answer']); ?></div>
-                                    </div>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
-                </section>
-            </div>
-        </div>
-        <?php endif; ?>
 
         <!-- Footer -->
         <footer class="row mt-5">

@@ -728,30 +728,6 @@ a {
     padding: 2rem;
 }
 
-.faq-card .accordion {
-    --bs-accordion-bg: var(--surface-strong);
-    --bs-accordion-border-color: var(--border-soft);
-    --bs-accordion-color: var(--text-main);
-    --bs-accordion-active-bg: var(--light-blue);
-    --bs-accordion-active-color: var(--dark-blue);
-    --bs-accordion-btn-bg: var(--surface-strong);
-    --bs-accordion-btn-color: var(--text-main);
-    --bs-accordion-btn-focus-border-color: var(--primary-blue);
-    --bs-accordion-btn-focus-box-shadow: 0 0 0 0.2rem rgba(10, 102, 194, 0.16);
-}
-
-.faq-card .accordion-button {
-    font-weight: 600;
-}
-
-.faq-card .accordion-button:not(.collapsed) {
-    box-shadow: inset 0 -1px 0 var(--border-soft);
-}
-
-.faq-card .accordion-body {
-    color: var(--text-muted);
-}
-
 /* Responsive Styles */
 @media (max-width: 768px) {
     .main-container {
