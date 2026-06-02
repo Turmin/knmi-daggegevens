@@ -21,6 +21,56 @@ class CronScheduleService {
         ];
     }
 
+    public static function describeSchedule(string $schedule): string {
+        $schedule = trim(preg_replace('/\s+/', ' ', $schedule));
+        $aliases = [
+            '@hourly' => '0 * * * *',
+            '@daily' => '15 8 * * *',
+            '@weekly' => '15 8 * * 1',
+            '@monthly' => '15 8 1 * *'
+        ];
+        $schedule = $aliases[$schedule] ?? $schedule;
+        $parts = explode(' ', $schedule);
+
+        if (count($parts) !== 5) {
+            return 'Invalid cron expression.';
+        }
+
+        [$minute, $hour, $day, $month, $weekday] = $parts;
+        if ($minute === '*' && $hour === '*' && $day === '*' && $month === '*' && $weekday === '*') {
+            return 'Every minute.';
+        }
+
+        if (preg_match('/^\*\/(\d+)$/', $minute, $match) && $hour === '*' && $day === '*' && $month === '*' && $weekday === '*') {
+            return 'Every ' . (int)$match[1] . ' minutes.';
+        }
+
+        $sentence = self::describeTimeFields($minute, $hour);
+        $details = [];
+
+        if ($day !== '*') {
+            $details[] = 'on day ' . self::describeField($day) . ' of the month';
+        }
+
+        if ($month !== '*') {
+            $details[] = 'in ' . self::describeField($month, self::monthNames());
+        }
+
+        if ($weekday !== '*') {
+            $details[] = 'on ' . self::describeField($weekday, self::weekdayNames());
+        }
+
+        if (!$details && preg_match('/^at \d{2}:\d{2}$/', $sentence)) {
+            $sentence .= ' every day';
+        }
+
+        if ($details) {
+            $sentence .= ' ' . implode(' ', $details);
+        }
+
+        return ucfirst($sentence) . '.';
+    }
+
     public function listJobs(): array {
         $stmt = $this->db->query('SELECT * FROM knmi_cron_jobs ORDER BY enabled DESC, name ASC');
         return $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
@@ -242,6 +292,119 @@ class CronScheduleService {
         ];
 
         return $aliases[$schedule] ?? $schedule;
+    }
+
+    private static function describeTimeFields(string $minute, string $hour): string {
+        if ($minute === '*') {
+            if ($hour === '*') {
+                return 'every minute';
+            }
+
+            return 'every minute ' . self::describeHourWindow($hour);
+        }
+
+        if (ctype_digit($minute) && ctype_digit($hour)) {
+            return 'at ' . str_pad((string)(int)$hour, 2, '0', STR_PAD_LEFT) . ':' . str_pad((string)(int)$minute, 2, '0', STR_PAD_LEFT);
+        }
+
+        $sentence = 'at minute ' . self::describeField($minute) . ' past every hour';
+        if ($hour !== '*') {
+            $sentence .= ' ' . self::describeHourWindow($hour);
+        }
+
+        return $sentence;
+    }
+
+    private static function describeHourWindow(string $hour): string {
+        if (preg_match('/^(\d+)-(\d+)$/', $hour, $match)) {
+            return 'from ' . (int)$match[1] . ' through ' . (int)$match[2];
+        }
+
+        if (strpos($hour, ',') !== false) {
+            return 'at hours ' . self::describeField($hour);
+        }
+
+        if (preg_match('/^\*\/(\d+)$/', $hour, $match)) {
+            return 'every ' . (int)$match[1] . ' hours';
+        }
+
+        if (ctype_digit($hour)) {
+            return 'during hour ' . (int)$hour;
+        }
+
+        return 'when hour matches ' . $hour;
+    }
+
+    private static function describeField(string $field, array $names = []): string {
+        if ($field === '*') {
+            return 'every';
+        }
+
+        if (preg_match('/^\*\/(\d+)$/', $field, $match)) {
+            return 'every ' . (int)$match[1];
+        }
+
+        if (preg_match('/^(\d+)-(\d+)$/', $field, $match)) {
+            return self::fieldValue((int)$match[1], $names) . ' through ' . self::fieldValue((int)$match[2], $names);
+        }
+
+        if (strpos($field, ',') !== false) {
+            $values = [];
+            foreach (explode(',', $field) as $value) {
+                $values[] = ctype_digit($value) ? self::fieldValue((int)$value, $names) : $value;
+            }
+
+            return self::joinWords($values);
+        }
+
+        return ctype_digit($field) ? self::fieldValue((int)$field, $names) : $field;
+    }
+
+    private static function fieldValue(int $value, array $names = []): string {
+        return $names[$value] ?? (string)$value;
+    }
+
+    private static function joinWords(array $values): string {
+        $values = array_values(array_filter($values, static function ($value) {
+            return $value !== '';
+        }));
+
+        if (count($values) <= 1) {
+            return $values[0] ?? '';
+        }
+
+        $last = array_pop($values);
+        return implode(', ', $values) . ' and ' . $last;
+    }
+
+    private static function monthNames(): array {
+        return [
+            1 => 'January',
+            2 => 'February',
+            3 => 'March',
+            4 => 'April',
+            5 => 'May',
+            6 => 'June',
+            7 => 'July',
+            8 => 'August',
+            9 => 'September',
+            10 => 'October',
+            11 => 'November',
+            12 => 'December'
+        ];
+    }
+
+    private static function weekdayNames(): array {
+        return [
+            0 => 'Sunday',
+            1 => 'Monday',
+            2 => 'Tuesday',
+            3 => 'Wednesday',
+            4 => 'Thursday',
+            5 => 'Friday',
+            6 => 'Saturday',
+            7 => 'Sunday'
+        ];
     }
 
     private function normalizeStation($station): ?int {

@@ -104,22 +104,25 @@ function tableExists(PDO $db): bool {
     return (bool) $stmt->fetchColumn();
 }
 
-function getAdminStats(PDO $db, KnmiDataService $service): array {
+function getAdminStats(PDO $db, KnmiDataService $service, bool $checkMissing = false): array {
     $stats = [
         'table_exists' => tableExists($db),
         'total_records' => 0,
         'first_date' => null,
         'latest_date' => null,
-        'missing_days' => 0,
+        'missing_days' => null,
         'missing_preview' => [],
-        'file' => $service->getDataFileInfo(),
+        'missing_checked' => $checkMissing,
+        'file' => $service->getDataFileInfo(null, false),
         'zip_available' => class_exists('ZipArchive') || function_exists('gzinflate'),
         'zip_support' => getZipSupportLabel()
     ];
 
-    $missingDates = $service->getMissingDateSummary($db);
-    $stats['missing_days'] = (int)($missingDates['count'] ?? 0);
-    $stats['missing_preview'] = $missingDates['preview'] ?? [];
+    if ($checkMissing) {
+        $missingDates = $service->getMissingDateSummary($db);
+        $stats['missing_days'] = (int)($missingDates['count'] ?? 0);
+        $stats['missing_preview'] = $missingDates['preview'] ?? [];
+    }
 
     if (!$stats['table_exists']) {
         return $stats;
@@ -129,7 +132,6 @@ function getAdminStats(PDO $db, KnmiDataService $service): array {
     $stmt = $db->query("
         SELECT
             COUNT(*) as total_records,
-            COUNT(DISTINCT yyyymmdd) as available_days,
             MIN(yyyymmdd) as first_date,
             MAX(yyyymmdd) as latest_date
         FROM knmi
@@ -235,6 +237,7 @@ $cronTaskOptions = [];
 $stationOptions = [];
 $cronTokenFile = dirname(__DIR__, 2) . '/knmi.cron.credentials.php';
 $cronTokenConfigured = is_file($cronTokenFile);
+$checkMissingDates = ($_GET['check_missing'] ?? '') === '1';
 
 if ($isLoggedIn) {
     try {
@@ -304,7 +307,7 @@ if ($isLoggedIn) {
             }
         }
 
-        $stats = getAdminStats($db, $service);
+        $stats = getAdminStats($db, $service, $checkMissingDates);
         $cronJobs = $cronService->listJobs();
 
         $apiDate = $_GET['api_date'] ?? ($stats['latest_date'] ?? null);
@@ -453,8 +456,14 @@ $activity = array_reverse($_SESSION['admin_activity'] ?? []);
                 <div class="col-md-3">
                     <div class="stat-card">
                         <div class="text-muted">Missing days</div>
-                        <div class="stat-number"><?php echo (int) ($stats['missing_days'] ?? 0); ?></div>
-                        <small>Dates in file but not in DB</small>
+                        <div class="stat-number"><?php echo ($stats['missing_checked'] ?? false) ? (int)($stats['missing_days'] ?? 0) : '-'; ?></div>
+                        <small>
+                            <?php if ($stats['missing_checked'] ?? false): ?>
+                                Dates in file but not in DB
+                            <?php else: ?>
+                                <a href="?check_missing=1">Check missing days</a>
+                            <?php endif; ?>
+                        </small>
                     </div>
                 </div>
             </div>
@@ -486,6 +495,10 @@ $activity = array_reverse($_SESSION['admin_activity'] ?? []);
                                 <?php if (!empty($stats['missing_preview'])): ?>
                                     <div class="small text-muted">
                                         First missing dates: <?php echo h(implode(', ', $stats['missing_preview'])); ?><?php echo ((int) ($stats['missing_days'] ?? 0) > count($stats['missing_preview'])) ? ' ...' : ''; ?>
+                                    </div>
+                                <?php elseif (!($stats['missing_checked'] ?? false)): ?>
+                                    <div class="small text-muted">
+                                        Missing-date scan is skipped on normal page load to keep admin fast.
                                     </div>
                                 <?php endif; ?>
                             </form>
@@ -560,6 +573,10 @@ $activity = array_reverse($_SESSION['admin_activity'] ?? []);
                             <div class="col-md-2">
                                 <label class="form-label" for="new_cron_schedule">Schedule</label>
                                 <input class="form-control" id="new_cron_schedule" name="schedule" value="15 8 * * *" required>
+                                <div class="small text-muted mt-1">
+                                    <code>minute</code> <code>hour</code> <code>day</code> <code>month</code> <code>weekday</code>
+                                </div>
+                                <div class="small text-muted mt-1"><?php echo h(CronScheduleService::describeSchedule('15 8 * * *')); ?></div>
                             </div>
                             <div class="col-md-1">
                                 <div class="form-check mb-2">
@@ -571,7 +588,7 @@ $activity = array_reverse($_SESSION['admin_activity'] ?? []);
                                 <button class="btn btn-primary w-100" type="submit" name="action" value="cron_save">Add</button>
                             </div>
                         </div>
-                        <div class="small text-muted mt-2">Examples: <code>*/5 * * * *</code>, <code>15 8 * * *</code>, <code>@daily</code>.</div>
+                        <div class="small text-muted mt-2">Examples: <code>*/5 * * * *</code>, <code>15 8 * * *</code>, <code>0,30 8-12 * * *</code>, <code>@daily</code>.</div>
                     </form>
 
                     <?php if ($cronJobs): ?>
@@ -604,6 +621,9 @@ $activity = array_reverse($_SESSION['admin_activity'] ?? []);
                                     <div class="col-lg-2">
                                         <label class="form-label" for="cron_schedule_<?php echo h($job['id']); ?>">Schedule</label>
                                         <input class="form-control" id="cron_schedule_<?php echo h($job['id']); ?>" name="schedule" value="<?php echo h($job['schedule']); ?>" required>
+                                        <div class="small text-muted mt-1">
+                                            <code>minute</code> <code>hour</code> <code>day</code> <code>month</code> <code>weekday</code>
+                                        </div>
                                     </div>
                                     <div class="col-lg-1">
                                         <div class="form-check mb-2">
@@ -622,6 +642,8 @@ $activity = array_reverse($_SESSION['admin_activity'] ?? []);
                                 <div class="cron-meta small text-muted mt-2">
                                     Station:
                                     <?php echo h(($job['station'] ?? null) ? ((KnmiStationCatalog::name((int)$job['station']) ?: 'Station') . ' (' . (int)$job['station'] . ')') : 'All stations'); ?>,
+                                    schedule:
+                                    <?php echo h(CronScheduleService::describeSchedule((string)$job['schedule'])); ?>,
                                     Last run: <?php echo h($job['last_run_at'] ?: '-'); ?>,
                                     status:
                                     <span class="badge bg-<?php echo ($job['last_status'] ?? '') === 'success' ? 'success' : (($job['last_status'] ?? '') === 'failed' ? 'danger' : 'secondary'); ?>">

@@ -53,7 +53,7 @@ class KnmiDataService {
             'success' => $failed === 0,
             'messages' => $messages,
             'files' => array_values(array_unique($files)),
-            'file_info' => $this->getDataFileInfo($station)
+            'file_info' => $this->getDataFileInfo($station, false)
         ];
     }
 
@@ -75,7 +75,7 @@ class KnmiDataService {
                     'success' => true,
                     'messages' => $fallback['messages'] ?? [],
                     'files' => [basename($dataFile)],
-                    'file_info' => $this->getDataFileInfo($station)
+                    'file_info' => $this->getDataFileInfo($station, false)
                 ];
             }
 
@@ -97,7 +97,7 @@ class KnmiDataService {
                     'success' => true,
                     'messages' => array_merge($messages, $extract['messages'] ?? [], $fallback['messages'] ?? []),
                     'files' => [basename($dataFile)],
-                    'file_info' => $this->getDataFileInfo($station)
+                    'file_info' => $this->getDataFileInfo($station, false)
                 ];
             }
 
@@ -114,7 +114,7 @@ class KnmiDataService {
             'success' => true,
             'messages' => $messages,
             'files' => $extract['files'] ?? [],
-            'file_info' => $this->getDataFileInfo($station)
+            'file_info' => $this->getDataFileInfo($station, false)
         ];
     }
 
@@ -147,11 +147,11 @@ class KnmiDataService {
             'messages' => $messages ?: ['No missing or new rows found.'],
             'inserted' => $inserted,
             'last_database_date' => $this->getLastDatabaseDate($db, $station),
-            'file_info' => $this->getDataFileInfo($station)
+            'file_info' => $this->getDataFileInfo($station, false)
         ];
     }
 
-    public function getDataFileInfo(?int $station = null): array {
+    public function getDataFileInfo(?int $station = null, bool $scanRows = true): array {
         $info = [
             'exists' => false,
             'path' => $this->rootDir,
@@ -192,8 +192,15 @@ class KnmiDataService {
                 $info['modified_at'] = $fileInfo['modified_at'];
             }
 
-            $handle = fopen($dataFile, 'r');
-            if ($handle) {
+            if (!$scanRows) {
+                $fileInfo['latest_date'] = $this->getLatestDateFromDataFile($dataFile, $stationId);
+            } else {
+                $handle = fopen($dataFile, 'r');
+                if (!$handle) {
+                    $info['files'][] = $fileInfo;
+                    continue;
+                }
+
                 while (($line = fgets($handle)) !== false) {
                     $row = $this->parseDataLine($line, $stationId);
                     if (!$row) {
@@ -205,7 +212,7 @@ class KnmiDataService {
                 fclose($handle);
             }
 
-            $info['rows'] += $fileInfo['rows'];
+            $info['rows'] += (int)$fileInfo['rows'];
             if ($fileInfo['latest_date'] !== null && ($info['latest_date'] === null || $fileInfo['latest_date'] > $info['latest_date'])) {
                 $info['latest_date'] = $fileInfo['latest_date'];
             }
@@ -531,6 +538,57 @@ class KnmiDataService {
             'messages' => ['Extracted ' . $this->stationLabel($station) . ' with built-in ZIP fallback: ' . $entry['name']],
             'files' => [basename($dataFile)]
         ];
+    }
+
+    private function getLatestDateFromDataFile(string $dataFile, int $station): ?string {
+        $size = filesize($dataFile);
+        if ($size === false || $size <= 0) {
+            return null;
+        }
+
+        $handle = fopen($dataFile, 'rb');
+        if (!$handle) {
+            return null;
+        }
+
+        $position = $size;
+        $buffer = '';
+        $chunkSize = 65536;
+
+        while ($position > 0) {
+            $readSize = min($chunkSize, $position);
+            $position -= $readSize;
+
+            if (fseek($handle, $position) !== 0) {
+                break;
+            }
+
+            $chunk = fread($handle, $readSize);
+            if ($chunk === false) {
+                break;
+            }
+
+            $buffer = $chunk . $buffer;
+            $lines = preg_split('/\r\n|\r|\n/', $buffer);
+            if ($lines === false) {
+                break;
+            }
+
+            if ($position > 0) {
+                $buffer = array_shift($lines) ?? '';
+            }
+
+            for ($i = count($lines) - 1; $i >= 0; $i--) {
+                $row = $this->parseDataLine($lines[$i], $station);
+                if ($row) {
+                    fclose($handle);
+                    return $row['yyyymmdd'];
+                }
+            }
+        }
+
+        fclose($handle);
+        return null;
     }
 
     private function findZipEntry(string $zipData, string $preferredFileName): ?array {
