@@ -104,6 +104,10 @@ class ChartManager {
                                     const language = context.chart.$language || 'nl';
                                     const hours = window.AppI18n?.[language]?.hours || 'uur';
                                     return `${context.dataset.label}: ${value} ${hours}`;
+                                } else if (type === 'pressure') {
+                                    return `${context.dataset.label}: ${value} hPa`;
+                                } else if (type === 'radiation') {
+                                    return `${context.dataset.label}: ${value} kJ/cm²`;
                                 }
                                 return `${context.dataset.label}: ${value}`;
                             }
@@ -221,6 +225,22 @@ class ChartManager {
                     return item.sun_duration;
                 });
                 break;
+            case 'pressure':
+                data = this.data.map(item => {
+                    if (item.pressure !== null && item.pressure !== undefined) {
+                        hasValidData = true;
+                    }
+                    return item.pressure;
+                });
+                break;
+            case 'radiation':
+                data = this.data.map(item => {
+                    if (item.radiation !== null && item.radiation !== undefined) {
+                        hasValidData = true;
+                    }
+                    return item.radiation;
+                });
+                break;
         }
 
         if (!hasValidData) {
@@ -239,7 +259,7 @@ class ChartManager {
         this.chart.options.scales.y.title.text = chartConfig.yAxisTitle;
         
         // Adjust y-axis based on data type
-        if (type === 'rain') {
+        if (type === 'rain' || type === 'radiation') {
             this.chart.options.scales.y.beginAtZero = true;
         } else {
             this.chart.options.scales.y.beginAtZero = false;
@@ -299,6 +319,24 @@ class ChartManager {
                     label: this.t('chartDatasetSun'),
                     borderColor: 'rgb(255, 205, 86)',
                     backgroundColor: 'rgba(255, 205, 86, 0.2)',
+                }
+            },
+            pressure: {
+                title: this.t('chartTitlePressureRange', { range, days: dataLength }),
+                yAxisTitle: this.t('chartAxisPressure'),
+                dataset: {
+                    label: this.t('chartDatasetPressure'),
+                    borderColor: 'rgb(120, 144, 156)',
+                    backgroundColor: 'rgba(120, 144, 156, 0.2)',
+                }
+            },
+            radiation: {
+                title: this.t('chartTitleRadiationRange', { range, days: dataLength }),
+                yAxisTitle: this.t('chartAxisRadiation'),
+                dataset: {
+                    label: this.t('chartDatasetRadiation'),
+                    borderColor: 'rgb(255, 159, 64)',
+                    backgroundColor: 'rgba(255, 159, 64, 0.2)',
                 }
             }
         };

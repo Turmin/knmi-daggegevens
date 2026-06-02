@@ -146,6 +146,7 @@ class WeatherData {
                 rh as rain_amount,
                 dr as rain_duration,
                 sq as sun_duration,
+                q as radiation_global,
                 pg as pressure_avg,
                 CONCAT(DAY(yyyymmdd), ' ', 
                     CASE
@@ -333,6 +334,7 @@ class WeatherData {
             'rain_amount' => $this->convertPrecipitation($data['rain_amount']),
             'rain_duration' => $this->convertDuration($data['rain_duration']),
             'sun_duration' => $this->convertDuration($data['sun_duration']),
+            'radiation' => $this->convertRadiation($data['radiation_global']),
             'pressure' => $this->convertPressure($data['pressure_avg'])
         ];
     }

@@ -595,6 +595,14 @@ if ($initialWeatherJson === false) {
                                         </span>
                                     </div>
                                 </div>
+                                <div class="weather-metric mt-2">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="metric-label" data-i18n="radiation">Globale straling</span>
+                                        <span class="metric-value" id="primarySunRadiation">
+                                            <div class="loading-placeholder">-- kJ/cm²</div>
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -722,6 +730,16 @@ if ($initialWeatherJson === false) {
                                 <input type="radio" class="btn-check" name="chartType" id="sunChart" autocomplete="off">
                                 <label class="btn btn-outline-light btn-sm" for="sunChart" title="Zonnesschijnverloop" data-i18n-title="chartSun">
                                     <i class="bi bi-sun me-1"></i><span data-i18n="chartSun">Zon</span>
+                                </label>
+
+                                <input type="radio" class="btn-check" name="chartType" id="pressureChart" autocomplete="off">
+                                <label class="btn btn-outline-light btn-sm" for="pressureChart" title="Luchtdrukverloop" data-i18n-title="chartPressure">
+                                    <i class="bi bi-speedometer2 me-1"></i><span data-i18n="chartPressure">Luchtdruk</span>
+                                </label>
+
+                                <input type="radio" class="btn-check" name="chartType" id="radiationChart" autocomplete="off">
+                                <label class="btn btn-outline-light btn-sm" for="radiationChart" title="Globale straling" data-i18n-title="chartRadiation">
+                                    <i class="bi bi-brightness-high me-1"></i><span data-i18n="chartRadiation">Straling</span>
                                 </label>
                             </div>
                         </div>

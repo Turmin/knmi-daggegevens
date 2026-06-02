@@ -920,6 +920,7 @@ class WeatherApp {
         this.updateElement('primaryRainDuration', this.formatDuration(data.precipitation.duration));
         this.updateElement('primarySun', this.formatDuration(data.sunshine.duration));
         this.updateElement('primarySunPercentage', data.sunshine.percentage ? `${data.sunshine.percentage}%` : '--');
+        this.updateElement('primarySunRadiation', this.formatRadiation(data.sunshine.radiation));
 
         // Pressure & Humidity
         this.updateElement('primaryPressure', this.formatPressure(data.pressure.avg));
@@ -936,6 +937,7 @@ class WeatherApp {
         const primaryWind = this.parseValue(this.getElementText('primaryWind'));
         const primaryRain = this.parseValue(this.getElementText('primaryRain'));
         const primarySun = this.parseValue(this.getElementText('primarySun'));
+        const primaryRadiation = this.parseValue(this.getElementText('primarySunRadiation'));
 
         // Update comparison title
         const titleEl = document.getElementById('comparisonDayTitle');
@@ -950,7 +952,8 @@ class WeatherApp {
                 temp: primaryTemp,
                 wind: primaryWind,
                 rain: primaryRain,
-                sun: primarySun
+                sun: primarySun,
+                radiation: primaryRadiation
             });
         }
     }
@@ -960,6 +963,7 @@ class WeatherApp {
         const windDiff = this.calculateDifference(data.wind.speed_avg, primaryData.wind);
         const rainDiff = this.calculateDifference(data.precipitation.amount, primaryData.rain);
         const sunDiff = this.calculateDifference(data.sunshine.duration, primaryData.sun);
+        const radiationDiff = this.calculateDifference(data.sunshine.radiation, primaryData.radiation);
 
         return `
             <h5 class="text-danger mb-3">
@@ -1070,6 +1074,13 @@ class WeatherApp {
                             <span class="metric-label">${this.t('percentage')}</span>
                             <span class="metric-value comparison-value">${data.sunshine.percentage ? `${data.sunshine.percentage}%` : '--'}</span>
                         </div>
+                    </div>
+                    <div class="weather-metric comparison-metric mt-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="metric-label">${this.t('radiation')}</span>
+                            <span class="metric-value comparison-value">${this.formatRadiation(data.sunshine.radiation)}</span>
+                        </div>
+                        <small class="text-muted">${this.t('difference')}: ${radiationDiff}</small>
                     </div>
                 </div>
             </div>
@@ -1424,6 +1435,10 @@ class WeatherApp {
         return value !== null && value !== undefined ? `${value}\u00a0hPa` : '--\u00a0hPa';
     }
 
+    formatRadiation(value) {
+        return value !== null && value !== undefined ? `${value}\u00a0kJ/cm\u00b2` : '--\u00a0kJ/cm\u00b2';
+    }
+
     formatPercent(value) {
         return value !== null && value !== undefined ? `${value}%` : '--%';
     }
@@ -1468,10 +1483,10 @@ class WeatherApp {
     }
 
     formatHour(hour) {
-        if (!hour) return '';
+        if (hour === null || hour === undefined || hour === '') return '';
         const hourNumber = Number(hour);
         const h = hourNumber > 100 ? Math.floor(hourNumber / 100) : hourNumber;
-        return `uur ${h}`;
+        return `${this.t('hourPrefix')} ${h}`;
     }
 
     parseValue(text) {
