@@ -1263,10 +1263,10 @@ class WeatherApp {
             content.innerHTML = `
                 <div class="col-md-3">
                     <div class="weather-metric monthly-stat">
-                        <i class="bi bi-thermometer text-primary fs-3"></i>
+                        <i class="bi bi-thermometer-sun text-danger fs-3"></i>
                         <div>
-                            <div class="metric-value">${this.formatTemperature(stats.temperature.avg)}</div>
-                            <small>${this.t('avgTemperature')}</small>
+                            <div class="metric-value">${this.formatTemperature(stats.temperature.max)}</div>
+                            <small>${this.t('maxTemperature')}</small>
                         </div>
                     </div>
                 </div>

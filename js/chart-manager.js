@@ -28,7 +28,7 @@ class ChartManager {
             data: {
                 labels: [],
                 datasets: [{
-                    label: this.t('chartDatasetTemp'),
+                    label: this.t('chartDatasetTempMax'),
                     data: [],
                     borderColor: 'rgb(255, 99, 132)',
                     backgroundColor: 'rgba(255, 99, 132, 0.2)',
@@ -77,7 +77,7 @@ class ChartManager {
                         titleColor: '#fff',
                         bodyColor: '#fff',
                         cornerRadius: 8,
-                        displayColors: false,
+                        displayColors: true,
                         titleFont: {
                             size: 14,
                             weight: 'bold'
@@ -189,57 +189,65 @@ class ChartManager {
         const labels = this.data.map(item => this.formatChartDate(item.date, item.date_short));
         const chartConfig = this.getChartConfig(type);
         
-        let data = [];
         let hasValidData = false;
+        let datasets = [];
         
         switch(type) {
             case 'temp':
-                data = this.data.map(item => {
-                    if (item.temp_avg !== null && item.temp_avg !== undefined) {
-                        hasValidData = true;
-                    }
-                    return item.temp_avg;
+                datasets = chartConfig.datasets.map(datasetConfig => {
+                    const values = this.data.map(item => {
+                        if (item[datasetConfig.dataKey] !== null && item[datasetConfig.dataKey] !== undefined) {
+                            hasValidData = true;
+                        }
+                        return item[datasetConfig.dataKey];
+                    });
+
+                    return {
+                        ...this.baseDatasetConfig(),
+                        ...datasetConfig.dataset,
+                        data: values
+                    };
                 });
                 break;
             case 'rain':
-                data = this.data.map(item => {
+                datasets = [this.singleDataset(chartConfig.dataset, this.data.map(item => {
                     if (item.rain_amount !== null && item.rain_amount !== undefined) {
                         hasValidData = true;
                     }
                     return item.rain_amount || 0;
-                });
+                }))];
                 break;
             case 'wind':
-                data = this.data.map(item => {
+                datasets = [this.singleDataset(chartConfig.dataset, this.data.map(item => {
                     if (item.wind_speed !== null && item.wind_speed !== undefined) {
                         hasValidData = true;
                     }
                     return item.wind_speed;
-                });
+                }))];
                 break;
             case 'sun':
-                data = this.data.map(item => {
+                datasets = [this.singleDataset(chartConfig.dataset, this.data.map(item => {
                     if (item.sun_duration !== null && item.sun_duration !== undefined) {
                         hasValidData = true;
                     }
                     return item.sun_duration;
-                });
+                }))];
                 break;
             case 'pressure':
-                data = this.data.map(item => {
+                datasets = [this.singleDataset(chartConfig.dataset, this.data.map(item => {
                     if (item.pressure !== null && item.pressure !== undefined) {
                         hasValidData = true;
                     }
                     return item.pressure;
-                });
+                }))];
                 break;
             case 'radiation':
-                data = this.data.map(item => {
+                datasets = [this.singleDataset(chartConfig.dataset, this.data.map(item => {
                     if (item.radiation !== null && item.radiation !== undefined) {
                         hasValidData = true;
                     }
                     return item.radiation;
-                });
+                }))];
                 break;
         }
 
@@ -249,11 +257,7 @@ class ChartManager {
         }
 
         this.chart.data.labels = labels;
-        this.chart.data.datasets[0] = {
-            ...this.chart.data.datasets[0],
-            ...chartConfig.dataset,
-            data: data
-        };
+        this.chart.data.datasets = datasets;
         
         this.chart.options.plugins.title.text = chartConfig.title;
         this.chart.options.scales.y.title.text = chartConfig.yAxisTitle;
@@ -270,12 +274,12 @@ class ChartManager {
 
     showEmptyChart(title = this.t('chartNoData')) {
         this.chart.data.labels = [this.t('chartNoDataLabel')];
-        this.chart.data.datasets[0] = {
-            ...this.chart.data.datasets[0],
+        this.chart.data.datasets = [{
+            ...this.baseDatasetConfig(),
             data: [0],
             borderColor: 'rgba(128, 128, 128, 0.5)',
             backgroundColor: 'rgba(128, 128, 128, 0.1)',
-        };
+        }];
         
         this.chart.options.plugins.title.text = title;
         this.chart.update('active');
@@ -288,11 +292,32 @@ class ChartManager {
             temp: {
                 title: this.t('chartTitleTempRange', { range, days: dataLength }),
                 yAxisTitle: this.t('chartAxisTemp'),
-                dataset: {
-                    label: this.t('chartDatasetTemp'),
-                    borderColor: 'rgb(255, 99, 132)',
-                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                }
+                datasets: [
+                    {
+                        dataKey: 'temp_min',
+                        dataset: {
+                            label: this.t('chartDatasetTempMin'),
+                            borderColor: 'rgb(54, 162, 235)',
+                            backgroundColor: 'rgba(54, 162, 235, 0.14)'
+                        }
+                    },
+                    {
+                        dataKey: 'temp_avg',
+                        dataset: {
+                            label: this.t('chartDatasetTempAvg'),
+                            borderColor: 'rgb(255, 205, 86)',
+                            backgroundColor: 'rgba(255, 205, 86, 0.14)'
+                        }
+                    },
+                    {
+                        dataKey: 'temp_max',
+                        dataset: {
+                            label: this.t('chartDatasetTempMax'),
+                            borderColor: 'rgb(255, 99, 132)',
+                            backgroundColor: 'rgba(255, 99, 132, 0.18)'
+                        }
+                    }
+                ]
             },
             rain: {
                 title: this.t('chartTitleRainRange', { range, days: dataLength }),
@@ -342,6 +367,26 @@ class ChartManager {
         };
         
         return configs[type] || configs.temp;
+    }
+
+    baseDatasetConfig() {
+        return {
+            tension: 0.4,
+            fill: false,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2
+        };
+    }
+
+    singleDataset(datasetConfig, data) {
+        return {
+            ...this.baseDatasetConfig(),
+            ...datasetConfig,
+            data,
+            fill: true
+        };
     }
 
     setLanguage(language) {
