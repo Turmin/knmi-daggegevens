@@ -866,6 +866,9 @@ $manifestHref = appAssetPath('manifest.json');
                 data: yearlyStats.map(row => row[definition.dataKey]),
                 borderColor: palette.stroke,
                 backgroundColor: palette.fill,
+                pointBackgroundColor: palette.stroke,
+                pointBorderColor: palette.stroke,
+                pointStyle: 'circle',
                 borderWidth: activeChartType === 'line' ? 3 : 1,
                 borderRadius: activeChartType === 'bar' ? 3 : 0,
                 fill: activeChartType === 'line' && metricConfig[activeMetric].datasets.length === 1,
@@ -974,8 +977,21 @@ $manifestHref = appAssetPath('manifest.json');
                                 }
                             },
                             tooltip: {
-                                displayColors: false,
+                                displayColors: true,
+                                usePointStyle: true,
+                                boxWidth: 10,
+                                boxHeight: 10,
+                                boxPadding: 8,
                                 callbacks: {
+                                    labelColor: context => ({
+                                        borderColor: context.dataset.borderColor,
+                                        backgroundColor: context.dataset.borderColor,
+                                        borderWidth: 0
+                                    }),
+                                    labelPointStyle: () => ({
+                                        pointStyle: 'circle',
+                                        rotation: 0
+                                    }),
                                     label: context => {
                                         const config = metricConfig[activeMetric];
                                         const definition = config.datasets[context.datasetIndex];
