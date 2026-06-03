@@ -958,7 +958,10 @@ $manifestHref = appAssetPath('manifest.json');
                             legend: {
                                 labels: {
                                     color: colors.text,
-                                    usePointStyle: true
+                                    usePointStyle: true,
+                                    pointStyleWidth: 18,
+                                    boxWidth: 18,
+                                    padding: 18
                                 }
                             },
                             title: {
@@ -971,6 +974,7 @@ $manifestHref = appAssetPath('manifest.json');
                                 }
                             },
                             tooltip: {
+                                displayColors: false,
                                 callbacks: {
                                     label: context => {
                                         const config = metricConfig[activeMetric];

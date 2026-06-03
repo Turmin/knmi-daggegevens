@@ -53,6 +53,8 @@ class ChartManager {
                         position: 'top',
                         labels: {
                             usePointStyle: true,
+                            pointStyleWidth: 18,
+                            boxWidth: 18,
                             padding: 20,
                             font: {
                                 size: 12,
@@ -77,7 +79,7 @@ class ChartManager {
                         titleColor: '#fff',
                         bodyColor: '#fff',
                         cornerRadius: 8,
-                        displayColors: true,
+                        displayColors: false,
                         titleFont: {
                             size: 14,
                             weight: 'bold'
@@ -205,6 +207,7 @@ class ChartManager {
                     return {
                         ...this.baseDatasetConfig(),
                         ...datasetConfig.dataset,
+                        pointBackgroundColor: datasetConfig.dataset.borderColor,
                         data: values
                     };
                 });
@@ -385,6 +388,7 @@ class ChartManager {
             ...this.baseDatasetConfig(),
             ...datasetConfig,
             data,
+            pointBackgroundColor: datasetConfig.borderColor,
             fill: true
         };
     }
