@@ -385,9 +385,16 @@ class WeatherApp {
         }
 
         input.dataset.pickerOpenBound = 'true';
+        let lastPointerType = '';
+        const isIosLike = () => {
+            const userAgent = window.navigator.userAgent || '';
+            const platform = window.navigator.platform || '';
+            return /iPad|iPhone|iPod/.test(userAgent)
+                || (platform === 'MacIntel' && window.navigator.maxTouchPoints > 1);
+        };
 
         const openPicker = (event = null) => {
-            if (typeof input.showPicker !== 'function' || input.disabled || input.readOnly) {
+            if (isIosLike() || typeof input.showPicker !== 'function' || input.disabled || input.readOnly) {
                 return;
             }
 
@@ -403,11 +410,22 @@ class WeatherApp {
         };
 
         input.addEventListener('pointerdown', event => {
-            if (event.pointerType === 'mouse' && event.button !== 0) {
+            lastPointerType = event.pointerType || '';
+        });
+
+        input.addEventListener('click', event => {
+            if (lastPointerType && lastPointerType !== 'mouse') {
+                lastPointerType = '';
+                return;
+            }
+
+            if (lastPointerType === 'mouse' && event.button !== 0) {
+                lastPointerType = '';
                 return;
             }
 
             openPicker(event);
+            lastPointerType = '';
         });
 
         input.addEventListener('keydown', event => {
