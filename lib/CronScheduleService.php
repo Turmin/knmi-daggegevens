@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/KnmiStationCatalog.php';
+require_once __DIR__ . '/YearlyStatsService.php';
 
 class CronScheduleService {
     private $db;
@@ -244,6 +245,7 @@ class CronScheduleService {
                     $import = $this->dataService->importDailyData($this->db, $station);
                     $success = (bool)($import['success'] ?? false);
                     $messages = array_merge($messages, $import['messages'] ?? []);
+                    $this->warmYearlyStatsCacheAfterImport($import, $station, $messages);
                 }
             } elseif ($job['task'] === 'download') {
                 $result = $this->dataService->downloadDailyData($station);
@@ -253,6 +255,7 @@ class CronScheduleService {
                 $result = $this->dataService->importDailyData($this->db, $station);
                 $success = (bool)($result['success'] ?? false);
                 $messages = $result['messages'] ?? [];
+                $this->warmYearlyStatsCacheAfterImport($result, $station, $messages);
             } else {
                 throw new InvalidArgumentException('Unknown cron task.');
             }
@@ -284,6 +287,24 @@ class CronScheduleService {
             'success' => $success,
             'messages' => $messages ?: ['Cron task finished.']
         ];
+    }
+
+    private function warmYearlyStatsCacheAfterImport(array $import, ?int $station, array &$messages): void {
+        if (!($import['success'] ?? false) || (int)($import['inserted'] ?? 0) <= 0) {
+            return;
+        }
+
+        if ($station !== null && $station !== KnmiStationCatalog::DEFAULT_STATION) {
+            return;
+        }
+
+        try {
+            $yearlyStatsService = new YearlyStatsService($this->db);
+            $warm = $yearlyStatsService->warmCache(KnmiStationCatalog::DEFAULT_STATION);
+            $messages = array_merge($messages, $warm['messages'] ?? []);
+        } catch (Throwable $e) {
+            $messages[] = 'Could not rebuild yearly statistics cache: ' . $e->getMessage();
+        }
     }
 
     private function normalizeSchedule(string $schedule): string {

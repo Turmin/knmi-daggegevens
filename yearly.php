@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/config/Database.php';
+require_once __DIR__ . '/lib/YearlyStatsService.php';
 
 function h($value) {
     return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
@@ -102,6 +103,7 @@ $pageDescription = $pageLanguage === "en"
 
 $yearlyStartDate = '1901-01-01';
 $precipitationStartDate = '1906-01-01';
+$stationId = 260;
 $rows = [];
 $dailyRecords = [
     'warmest_day' => null,
@@ -113,163 +115,10 @@ $error = null;
 try {
     $database = new Database();
     $db = $database->connect();
-    $stmt = $db->prepare("
-        SELECT
-            YEAR(yyyymmdd) AS year,
-            COUNT(*) AS available_days,
-            ROUND(MIN(tn_num) * 0.1, 1) AS temp_min_c,
-            ROUND(AVG(tg_num) * 0.1, 1) AS temp_avg_c,
-            ROUND(MAX(tx_num) * 0.1, 1) AS temp_max_c,
-            ROUND(SUM(CASE WHEN sq_num < 0 THEN 0 ELSE sq_num END) * 0.1, 1) AS sunshine_hours
-        FROM (
-            SELECT
-                yyyymmdd,
-                CAST(NULLIF(TRIM(tn), '') AS SIGNED) AS tn_num,
-                CAST(NULLIF(TRIM(tg), '') AS SIGNED) AS tg_num,
-                CAST(NULLIF(TRIM(tx), '') AS SIGNED) AS tx_num,
-                CAST(NULLIF(TRIM(sq), '') AS SIGNED) AS sq_num
-            FROM knmi
-            WHERE stn = 260
-                AND yyyymmdd >= :start_date
-        ) AS daily
-        GROUP BY YEAR(yyyymmdd)
-        ORDER BY year ASC
-    ");
-    $stmt->bindValue(':start_date', $yearlyStartDate, PDO::PARAM_STR);
-    $stmt->execute();
-    $rows = $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
-
-    $rainMonthStmt = $db->prepare("
-        SELECT
-            YEAR(yyyymmdd) AS year,
-            MONTH(yyyymmdd) AS month,
-            SUM(CASE WHEN rh_num < 0 THEN 1 ELSE rh_num END) AS precipitation_tenth,
-            SUM(CASE WHEN rh_num != 0 THEN 1 ELSE 0 END) AS precipitation_days
-        FROM (
-            SELECT
-                yyyymmdd,
-                CAST(NULLIF(TRIM(rh), '') AS SIGNED) AS rh_num
-            FROM knmi
-            WHERE stn = 260
-                AND yyyymmdd >= :precipitation_start_date
-        ) AS rain_daily
-        GROUP BY YEAR(yyyymmdd), MONTH(yyyymmdd)
-        ORDER BY year ASC, month ASC
-    ");
-    $rainMonthStmt->bindValue(':precipitation_start_date', $precipitationStartDate, PDO::PARAM_STR);
-    $rainMonthStmt->execute();
-    $rainMonthRows = $rainMonthStmt ? $rainMonthStmt->fetchAll(PDO::FETCH_ASSOC) : [];
-    $rainMonthsByYear = [];
-
-    foreach ($rainMonthRows as $rainMonthRow) {
-        $rainMonthsByYear[(int)$rainMonthRow['year']][] = [
-            'month' => (int)$rainMonthRow['month'],
-            'precipitation_tenth' => (float)$rainMonthRow['precipitation_tenth'],
-            'precipitation_days' => (int)$rainMonthRow['precipitation_days']
-        ];
-    }
-
-    foreach ($rows as &$row) {
-        $row['precipitation_mm'] = null;
-        $row['precipitation_min_month'] = null;
-        $row['precipitation_min_month_mm'] = null;
-        $row['precipitation_avg_month'] = null;
-        $row['precipitation_avg_month_mm'] = null;
-        $row['precipitation_max_month'] = null;
-        $row['precipitation_max_month_mm'] = null;
-        $row['precipitation_days'] = null;
-
-        $rainMonths = $rainMonthsByYear[(int)$row['year']] ?? [];
-        if (!$rainMonths) {
-            continue;
-        }
-
-        $totalTenth = 0.0;
-        $precipitationDays = 0;
-        $minMonth = null;
-        $maxMonth = null;
-
-        foreach ($rainMonths as $rainMonth) {
-            $totalTenth += $rainMonth['precipitation_tenth'];
-            $precipitationDays += $rainMonth['precipitation_days'];
-
-            if ($minMonth === null || $rainMonth['precipitation_tenth'] < $minMonth['precipitation_tenth']) {
-                $minMonth = $rainMonth;
-            }
-
-            if ($maxMonth === null || $rainMonth['precipitation_tenth'] > $maxMonth['precipitation_tenth']) {
-                $maxMonth = $rainMonth;
-            }
-        }
-
-        $averageTenth = $totalTenth / count($rainMonths);
-
-        $row['precipitation_mm'] = round($totalTenth * 0.1, 1);
-        $row['precipitation_min_month'] = $minMonth['month'];
-        $row['precipitation_min_month_mm'] = round($minMonth['precipitation_tenth'] * 0.1, 1);
-        $row['precipitation_avg_month'] = null;
-        $row['precipitation_avg_month_mm'] = round($averageTenth * 0.1, 1);
-        $row['precipitation_max_month'] = $maxMonth['month'];
-        $row['precipitation_max_month_mm'] = round($maxMonth['precipitation_tenth'] * 0.1, 1);
-        $row['precipitation_days'] = $precipitationDays;
-    }
-    unset($row);
-
-    $warmestDayStmt = $db->prepare("
-        SELECT yyyymmdd AS date, ROUND(tx_num * 0.1, 1) AS value
-        FROM (
-            SELECT yyyymmdd, CAST(NULLIF(TRIM(tx), '') AS SIGNED) AS tx_num
-            FROM knmi
-            WHERE stn = 260
-                AND yyyymmdd >= :start_date
-        ) AS daily
-        WHERE tx_num IS NOT NULL
-        ORDER BY tx_num DESC, yyyymmdd ASC
-        LIMIT 1
-    ");
-    $warmestDayStmt->bindValue(':start_date', $yearlyStartDate, PDO::PARAM_STR);
-    $warmestDayStmt->execute();
-    $dailyRecords['warmest_day'] = $warmestDayStmt ? ($warmestDayStmt->fetch(PDO::FETCH_ASSOC) ?: null) : null;
-
-    $coldestDayStmt = $db->prepare("
-        SELECT yyyymmdd AS date, ROUND(tn_num * 0.1, 1) AS value
-        FROM (
-            SELECT yyyymmdd, CAST(NULLIF(TRIM(tn), '') AS SIGNED) AS tn_num
-            FROM knmi
-            WHERE stn = 260
-                AND yyyymmdd >= :start_date
-        ) AS daily
-        WHERE tn_num IS NOT NULL
-        ORDER BY tn_num ASC, yyyymmdd ASC
-        LIMIT 1
-    ");
-    $coldestDayStmt->bindValue(':start_date', $yearlyStartDate, PDO::PARAM_STR);
-    $coldestDayStmt->execute();
-    $dailyRecords['coldest_day'] = $coldestDayStmt ? ($coldestDayStmt->fetch(PDO::FETCH_ASSOC) ?: null) : null;
-
-    $wettestDayStmt = $db->prepare("
-        SELECT yyyymmdd AS date, ROUND(precipitation_tenth * 0.1, 1) AS value
-        FROM (
-            SELECT
-                yyyymmdd,
-                CASE
-                    WHEN rh_num < 0 THEN 1
-                    ELSE rh_num
-                END AS precipitation_tenth
-            FROM (
-                SELECT yyyymmdd, CAST(NULLIF(TRIM(rh), '') AS SIGNED) AS rh_num
-                FROM knmi
-                WHERE stn = 260
-                    AND yyyymmdd >= :precipitation_start_date
-            ) AS rain_daily
-        ) AS daily
-        WHERE precipitation_tenth IS NOT NULL
-        ORDER BY precipitation_tenth DESC, yyyymmdd ASC
-        LIMIT 1
-    ");
-    $wettestDayStmt->bindValue(':precipitation_start_date', $precipitationStartDate, PDO::PARAM_STR);
-    $wettestDayStmt->execute();
-    $dailyRecords['wettest_day'] = $wettestDayStmt ? ($wettestDayStmt->fetch(PDO::FETCH_ASSOC) ?: null) : null;
+    $yearlyStatsService = new YearlyStatsService($db);
+    $yearlyStats = $yearlyStatsService->getStats($stationId, false, $yearlyStartDate, $precipitationStartDate);
+    $rows = $yearlyStats['rows'] ?? [];
+    $dailyRecords = array_merge($dailyRecords, $yearlyStats['daily_records'] ?? []);
 } catch (Throwable $e) {
     error_log('Yearly statistics page error: ' . $e->getMessage());
     $error = true;
