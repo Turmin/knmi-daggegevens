@@ -310,9 +310,10 @@ if ($isLoggedIn) {
         $stats = getAdminStats($db, $service, $checkMissingDates);
         $cronJobs = $cronService->listJobs();
 
+        $apiStation = normalizePostedStation($_GET['api_station'] ?? KnmiStationCatalog::DEFAULT_STATION) ?? KnmiStationCatalog::DEFAULT_STATION;
         $apiDate = $_GET['api_date'] ?? ($stats['latest_date'] ?? null);
         if ($apiDate && preg_match('/^\d{4}-\d{2}-\d{2}$/', $apiDate)) {
-            $apiPreview = $weatherData->getDataByDate($apiDate);
+            $apiPreview = $weatherData->getDataByDate($apiDate, $apiStation);
         }
     } catch (Throwable $e) {
         error_log('Admin error: ' . $e->getMessage());
@@ -670,20 +671,31 @@ $activity = array_reverse($_SESSION['admin_activity'] ?? []);
                         <div class="card-body">
                             <h2 class="h5 mb-3"><i class="bi bi-search text-primary me-2"></i>Day/API check</h2>
                             <form class="row g-2 mb-3" method="get">
-                                <div class="col">
+                                <div class="col-md-5">
                                     <input class="form-control" type="date" name="api_date" value="<?php echo h($_GET['api_date'] ?? ($stats['latest_date'] ?? '')); ?>">
+                                </div>
+                                <div class="col-md-5">
+                                    <select class="form-select" name="api_station" aria-label="Station for API check">
+                                        <?php foreach ($stationOptions as $station): ?>
+                                            <option value="<?php echo (int)$station['id']; ?>" <?php echo (int)$station['id'] === (int)($apiStation ?? KnmiStationCatalog::DEFAULT_STATION) ? 'selected' : ''; ?>>
+                                                <?php echo h($station['label']); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
                                 </div>
                                 <div class="col-auto">
                                     <button class="btn btn-primary" type="submit">Check</button>
                                 </div>
                             </form>
                             <?php if ($apiPreview): ?>
+                                <?php $apiPreviewStation = KnmiStationCatalog::get((int)($apiPreview['station'] ?? $apiStation ?? KnmiStationCatalog::DEFAULT_STATION)); ?>
                                 <div class="mb-2">
                                     <strong><?php echo h($apiPreview['date_formatted'] ?? $apiPreview['date']); ?></strong><br>
+                                    Station: <?php echo h($apiPreviewStation['label'] ?? ($apiPreview['station'] ?? '-')); ?><br>
                                     Temperature: <?php echo h($apiPreview['temperature']['avg'] ?? '-'); ?> C,
                                     precipitation: <?php echo h($apiPreview['precipitation']['amount'] ?? '-'); ?> mm
                                 </div>
-                                <a href="../api/weather.php/day?date=<?php echo h($apiPreview['date']); ?>" target="_blank" rel="noopener">Open JSON API response</a>
+                                <a href="../api/weather.php/day?date=<?php echo h($apiPreview['date']); ?>&amp;station=<?php echo (int)($apiPreview['station'] ?? $apiStation ?? KnmiStationCatalog::DEFAULT_STATION); ?>" target="_blank" rel="noopener">Open JSON API response</a>
                             <?php else: ?>
                                 <div class="text-muted">No day selected or no data found.</div>
                             <?php endif; ?>

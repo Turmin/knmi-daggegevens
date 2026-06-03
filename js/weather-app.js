@@ -185,6 +185,7 @@ class WeatherApp {
         // Date navigation
         const primaryDate = document.getElementById('primaryDate');
         if (primaryDate) {
+            this.enableDatePickerOpen(primaryDate);
             primaryDate.addEventListener('change', (e) => {
                 this.currentDate = this.parseAPIDate(e.target.value);
                 this.loadWeatherData();
@@ -237,6 +238,7 @@ class WeatherApp {
 
         const comparisonDate = document.getElementById('comparisonDate');
         if (comparisonDate) {
+            this.enableDatePickerOpen(comparisonDate);
             comparisonDate.addEventListener('change', () => {
                 if (this.comparisonMode) {
                     this.loadComparisonData();
@@ -374,6 +376,44 @@ class WeatherApp {
 
         window.addEventListener('offline', () => {
             this.showMessage(this.t('offlineLimited'), 'warning');
+        });
+    }
+
+    enableDatePickerOpen(input) {
+        if (!input || input.dataset.pickerOpenBound === 'true') {
+            return;
+        }
+
+        input.dataset.pickerOpenBound = 'true';
+
+        const openPicker = (event = null) => {
+            if (typeof input.showPicker !== 'function' || input.disabled || input.readOnly) {
+                return;
+            }
+
+            try {
+                input.focus({ preventScroll: true });
+                input.showPicker();
+                if (event) {
+                    event.preventDefault();
+                }
+            } catch (error) {
+                // Keep native browser behavior if showPicker is unavailable in this context.
+            }
+        };
+
+        input.addEventListener('pointerdown', event => {
+            if (event.pointerType === 'mouse' && event.button !== 0) {
+                return;
+            }
+
+            openPicker(event);
+        });
+
+        input.addEventListener('keydown', event => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                openPicker(event);
+            }
         });
     }
 
@@ -1263,10 +1303,10 @@ class WeatherApp {
             content.innerHTML = `
                 <div class="col-md-3">
                     <div class="weather-metric monthly-stat">
-                        <i class="bi bi-thermometer text-primary fs-3"></i>
+                        <i class="bi bi-thermometer-sun text-danger fs-3"></i>
                         <div>
-                            <div class="metric-value">${this.formatTemperature(stats.temperature.avg)}</div>
-                            <small>${this.t('avgTemperature')}</small>
+                            <div class="metric-value">${this.formatTemperature(stats.temperature.max)}</div>
+                            <small>${this.t('maxTemperature')}</small>
                         </div>
                     </div>
                 </div>

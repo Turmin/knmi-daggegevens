@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/config/Database.php';
+require_once __DIR__ . '/lib/YearlyStatsService.php';
 
 function h($value) {
     return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
@@ -26,6 +27,23 @@ function monthLabel($month, $language) {
     ];
 
     return $monthNames[$language][$monthIndex] ?? '';
+}
+
+function formatDateLabel($date, $language) {
+    if ($date === null || $date === '') {
+        return '--';
+    }
+
+    $timestamp = strtotime((string)$date);
+    if ($timestamp === false) {
+        return h($date);
+    }
+
+    $day = (int)date('j', $timestamp);
+    $month = monthLabel((int)date('n', $timestamp), $language);
+    $year = date('Y', $timestamp);
+
+    return h($day . ' ' . $month . ' ' . $year);
 }
 
 function formatMonthMetricValue($month, $value, $language, $unit = 'mm') {
@@ -85,125 +103,22 @@ $pageDescription = $pageLanguage === "en"
 
 $yearlyStartDate = '1901-01-01';
 $precipitationStartDate = '1906-01-01';
+$stationId = 260;
 $rows = [];
+$dailyRecords = [
+    'warmest_day' => null,
+    'coldest_day' => null,
+    'wettest_day' => null
+];
 $error = null;
 
 try {
     $database = new Database();
     $db = $database->connect();
-    $stmt = $db->prepare("
-        SELECT
-            YEAR(yyyymmdd) AS year,
-            COUNT(*) AS available_days,
-            ROUND(MIN(tn_num) * 0.1, 1) AS temp_min_c,
-            ROUND(AVG(tg_num) * 0.1, 1) AS temp_avg_c,
-            ROUND(MAX(tx_num) * 0.1, 1) AS temp_max_c,
-            ROUND(SUM(CASE WHEN sq_num < 0 THEN 0 ELSE sq_num END) * 0.1, 1) AS sunshine_hours
-        FROM (
-            SELECT
-                yyyymmdd,
-                CAST(NULLIF(TRIM(tn), '') AS SIGNED) AS tn_num,
-                CAST(NULLIF(TRIM(tg), '') AS SIGNED) AS tg_num,
-                CAST(NULLIF(TRIM(tx), '') AS SIGNED) AS tx_num,
-                CAST(NULLIF(TRIM(sq), '') AS SIGNED) AS sq_num
-            FROM knmi
-            WHERE stn = 260
-                AND yyyymmdd >= :start_date
-        ) AS daily
-        GROUP BY YEAR(yyyymmdd)
-        ORDER BY year ASC
-    ");
-    $stmt->bindValue(':start_date', $yearlyStartDate, PDO::PARAM_STR);
-    $stmt->execute();
-    $rows = $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
-
-    $rainMonthStmt = $db->prepare("
-        SELECT
-            YEAR(yyyymmdd) AS year,
-            MONTH(yyyymmdd) AS month,
-            SUM(CASE WHEN rh_num < 0 THEN 1 ELSE rh_num END) AS precipitation_tenth,
-            SUM(CASE WHEN rh_num != 0 THEN 1 ELSE 0 END) AS precipitation_days
-        FROM (
-            SELECT
-                yyyymmdd,
-                CAST(NULLIF(TRIM(rh), '') AS SIGNED) AS rh_num
-            FROM knmi
-            WHERE stn = 260
-                AND yyyymmdd >= :precipitation_start_date
-        ) AS rain_daily
-        GROUP BY YEAR(yyyymmdd), MONTH(yyyymmdd)
-        ORDER BY year ASC, month ASC
-    ");
-    $rainMonthStmt->bindValue(':precipitation_start_date', $precipitationStartDate, PDO::PARAM_STR);
-    $rainMonthStmt->execute();
-    $rainMonthRows = $rainMonthStmt ? $rainMonthStmt->fetchAll(PDO::FETCH_ASSOC) : [];
-    $rainMonthsByYear = [];
-
-    foreach ($rainMonthRows as $rainMonthRow) {
-        $rainMonthsByYear[(int)$rainMonthRow['year']][] = [
-            'month' => (int)$rainMonthRow['month'],
-            'precipitation_tenth' => (float)$rainMonthRow['precipitation_tenth'],
-            'precipitation_days' => (int)$rainMonthRow['precipitation_days']
-        ];
-    }
-
-    foreach ($rows as &$row) {
-        $row['precipitation_mm'] = null;
-        $row['precipitation_min_month'] = null;
-        $row['precipitation_min_month_mm'] = null;
-        $row['precipitation_avg_month'] = null;
-        $row['precipitation_avg_month_mm'] = null;
-        $row['precipitation_max_month'] = null;
-        $row['precipitation_max_month_mm'] = null;
-        $row['precipitation_days'] = null;
-
-        $rainMonths = $rainMonthsByYear[(int)$row['year']] ?? [];
-        if (!$rainMonths) {
-            continue;
-        }
-
-        $totalTenth = 0.0;
-        $precipitationDays = 0;
-        $minMonth = null;
-        $maxMonth = null;
-
-        foreach ($rainMonths as $rainMonth) {
-            $totalTenth += $rainMonth['precipitation_tenth'];
-            $precipitationDays += $rainMonth['precipitation_days'];
-
-            if ($minMonth === null || $rainMonth['precipitation_tenth'] < $minMonth['precipitation_tenth']) {
-                $minMonth = $rainMonth;
-            }
-
-            if ($maxMonth === null || $rainMonth['precipitation_tenth'] > $maxMonth['precipitation_tenth']) {
-                $maxMonth = $rainMonth;
-            }
-        }
-
-        $averageTenth = $totalTenth / count($rainMonths);
-        $averageMonth = null;
-
-        foreach ($rainMonths as $rainMonth) {
-            $distance = abs($rainMonth['precipitation_tenth'] - $averageTenth);
-            $currentDistance = $averageMonth === null
-                ? null
-                : abs($averageMonth['precipitation_tenth'] - $averageTenth);
-
-            if ($averageMonth === null || $distance < $currentDistance) {
-                $averageMonth = $rainMonth;
-            }
-        }
-
-        $row['precipitation_mm'] = round($totalTenth * 0.1, 1);
-        $row['precipitation_min_month'] = $minMonth['month'];
-        $row['precipitation_min_month_mm'] = round($minMonth['precipitation_tenth'] * 0.1, 1);
-        $row['precipitation_avg_month'] = $averageMonth['month'];
-        $row['precipitation_avg_month_mm'] = round($averageMonth['precipitation_tenth'] * 0.1, 1);
-        $row['precipitation_max_month'] = $maxMonth['month'];
-        $row['precipitation_max_month_mm'] = round($maxMonth['precipitation_tenth'] * 0.1, 1);
-        $row['precipitation_days'] = $precipitationDays;
-    }
-    unset($row);
+    $yearlyStatsService = new YearlyStatsService($db);
+    $yearlyStats = $yearlyStatsService->getStats($stationId, false, $yearlyStartDate, $precipitationStartDate);
+    $rows = $yearlyStats['rows'] ?? [];
+    $dailyRecords = array_merge($dailyRecords, $yearlyStats['daily_records'] ?? []);
 } catch (Throwable $e) {
     error_log('Yearly statistics page error: ' . $e->getMessage());
     $error = true;
@@ -383,7 +298,7 @@ $manifestHref = appAssetPath('manifest.json');
             <div class="col-12">
                 <div class="weather-card">
                     <div class="card-header">
-                        <h4 class="mb-0"><i class="bi bi-cloud-rain-heavy me-2"></i><span data-i18n="overview">Overzicht</span></h4>
+                        <h4 class="mb-0"><i class="bi bi-bar-chart-line me-2"></i><span data-i18n="overview">Overzicht</span></h4>
                     </div>
                     <div class="card-body">
                         <div class="row g-3 metric-card-grid">
@@ -396,40 +311,7 @@ $manifestHref = appAssetPath('manifest.json');
                                     </div>
                                 </div>
                             </div> -->
-                            <div class="col-md-6 col-xl">
-                                <div class="weather-metric monthly-stat">
-                                    <i class="bi bi-droplet text-info fs-3"></i>
-                                    <div>
-                                        <div class="metric-value"><?php echo formatMetricValue($average, 'mm'); ?></div>
-                                        <small data-i18n="averagePerYear">Gemiddelde jaarlijkse neerslag</small>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6 col-xl">
-                                <div class="weather-metric monthly-stat">
-                                    <i class="bi bi-cloud-arrow-down text-success fs-3"></i>
-                                    <div>
-                                        <div class="metric-value"><?php echo $wettest ? h($wettest['year']) : '--'; ?></div>
-                                        <small>
-                                            <span data-i18n="wettestYear">Natste jaar:</span>
-                                            <?php echo formatMetricValue($wettest['precipitation_mm'] ?? null, 'mm'); ?>
-                                        </small>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6 col-xl">
-                                <div class="weather-metric monthly-stat">
-                                    <i class="bi bi-sun text-warning fs-3"></i>
-                                    <div>
-                                        <div class="metric-value"><?php echo $driest ? h($driest['year']) : '--'; ?></div>
-                                        <small>
-                                            <span data-i18n="driestYear">Droogste jaar:</span>
-                                            <?php echo formatMetricValue($driest['precipitation_mm'] ?? null, 'mm'); ?>
-                                        </small>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6 col-xl">
+                            <div class="col-sm-6 col-lg-3">
                                 <div class="weather-metric monthly-stat">
                                     <i class="bi bi-thermometer-sun text-danger fs-3"></i>
                                     <div>
@@ -441,7 +323,7 @@ $manifestHref = appAssetPath('manifest.json');
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-6 col-xl">
+                            <div class="col-sm-6 col-lg-3">
                                 <div class="weather-metric monthly-stat">
                                     <i class="bi bi-brightness-high text-warning fs-3"></i>
                                     <div>
@@ -449,6 +331,75 @@ $manifestHref = appAssetPath('manifest.json');
                                         <small>
                                             <span data-i18n="sunniestYear">Zonnigste jaar:</span>
                                             <?php echo formatMetricValue($sunniest['sunshine_hours'] ?? null, 'h'); ?>
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-sm-6 col-lg-3">
+                                <div class="weather-metric monthly-stat">
+                                    <i class="bi bi-cloud-arrow-down text-primary fs-3"></i>
+                                    <div>
+                                        <div class="metric-value"><?php echo $wettest ? h($wettest['year']) : '--'; ?></div>
+                                        <small>
+                                            <span data-i18n="wettestYear">Natste jaar:</span>
+                                            <?php echo formatMetricValue($wettest['precipitation_mm'] ?? null, 'mm'); ?>
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-sm-6 col-lg-3">
+                                <div class="weather-metric monthly-stat">
+                                    <i class="bi bi-sun text-warning fs-3"></i>
+                                    <div>
+                                        <div class="metric-value"><?php echo $driest ? h($driest['year']) : '--'; ?></div>
+                                        <small>
+                                            <span data-i18n="driestYear">Droogste jaar:</span>
+                                            <?php echo formatMetricValue($driest['precipitation_mm'] ?? null, 'mm'); ?>
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-sm-6 col-lg-3">
+                                <div class="weather-metric monthly-stat">
+                                    <i class="bi bi-droplet text-info fs-3"></i>
+                                    <div>
+                                        <div class="metric-value"><?php echo formatMetricValue($average, 'mm'); ?></div>
+                                        <small data-i18n="averagePerYear">Gemiddelde jaarlijkse neerslag</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-sm-6 col-lg-3">
+                                <div class="weather-metric monthly-stat">
+                                    <i class="bi bi-arrow-up-circle text-danger fs-3"></i>
+                                    <div>
+                                        <div class="metric-value"><?php echo formatDateLabel($dailyRecords['warmest_day']['date'] ?? null, $pageLanguage); ?></div>
+                                        <small>
+                                            <span data-i18n="warmestDayEver">Warmste dag ooit:</span>
+                                            <?php echo formatMetricValue($dailyRecords['warmest_day']['value'] ?? null, '°C', false); ?>
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-sm-6 col-lg-3">
+                                <div class="weather-metric monthly-stat">
+                                    <i class="bi bi-arrow-down-circle text-info fs-3"></i>
+                                    <div>
+                                        <div class="metric-value"><?php echo formatDateLabel($dailyRecords['coldest_day']['date'] ?? null, $pageLanguage); ?></div>
+                                        <small>
+                                            <span data-i18n="coldestDayEver">Koudste dag ooit:</span>
+                                            <?php echo formatMetricValue($dailyRecords['coldest_day']['value'] ?? null, '°C', false); ?>
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-sm-6 col-lg-3">
+                                <div class="weather-metric monthly-stat">
+                                    <i class="bi bi-cloud-rain-heavy text-primary fs-3"></i>
+                                    <div>
+                                        <div class="metric-value"><?php echo formatDateLabel($dailyRecords['wettest_day']['date'] ?? null, $pageLanguage); ?></div>
+                                        <small>
+                                            <span data-i18n="wettestDayEver">Natste dag ooit:</span>
+                                            <?php echo formatMetricValue($dailyRecords['wettest_day']['value'] ?? null, 'mm'); ?>
                                         </small>
                                     </div>
                                 </div>
@@ -469,14 +420,14 @@ $manifestHref = appAssetPath('manifest.json');
                             </h4>
                             <div class="d-flex flex-wrap gap-2 justify-content-md-end">
                                 <div class="btn-group btn-group-sm yearly-chart-actions" role="group" data-i18n-aria-label="metricType" aria-label="Statistiek">
-                                    <button type="button" class="btn btn-outline-light active" data-metric-type="precipitation" data-i18n-title="precipitation" data-i18n-aria-label="precipitation" title="Neerslag" aria-label="Neerslag">
-                                        <i class="bi bi-droplet"></i>
-                                    </button>
-                                    <button type="button" class="btn btn-outline-light" data-metric-type="temperature" data-i18n-title="temperature" data-i18n-aria-label="temperature" title="Temperatuur" aria-label="Temperatuur">
+                                    <button type="button" class="btn btn-outline-light active" data-metric-type="temperature" data-i18n-title="temperature" data-i18n-aria-label="temperature" title="Temperatuur" aria-label="Temperatuur">
                                         <i class="bi bi-thermometer-half"></i>
                                     </button>
                                     <button type="button" class="btn btn-outline-light" data-metric-type="sunshine" data-i18n-title="sunshine" data-i18n-aria-label="sunshine" title="Zon" aria-label="Zon">
                                         <i class="bi bi-sun"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-outline-light" data-metric-type="precipitation" data-i18n-title="precipitation" data-i18n-aria-label="precipitation" title="Neerslag" aria-label="Neerslag">
+                                        <i class="bi bi-droplet"></i>
                                     </button>
                                 </div>
                                 <div class="btn-group btn-group-sm yearly-chart-actions" role="group" data-i18n-aria-label="chartType" aria-label="Grafiektype">
@@ -565,7 +516,7 @@ $manifestHref = appAssetPath('manifest.json');
             ? document.documentElement.lang
             : 'nl';
         let yearlyChart;
-        let activeMetric = 'precipitation';
+        let activeMetric = 'temperature';
         let activeChartType = 'line';
 
         const metricConfig = {
@@ -576,7 +527,7 @@ $manifestHref = appAssetPath('manifest.json');
                 beginAtZero: true,
                 datasets: [
                     { labelKey: 'yearlyChartDatasetRainMinMonth', dataKey: 'precipitation_min_month_mm', monthKey: 'precipitation_min_month' },
-                    { labelKey: 'yearlyChartDatasetRainAvgMonth', dataKey: 'precipitation_avg_month_mm', monthKey: 'precipitation_avg_month' },
+                    { labelKey: 'yearlyChartDatasetRainAvgMonth', dataKey: 'precipitation_avg_month_mm' },
                     { labelKey: 'yearlyChartDatasetRainMaxMonth', dataKey: 'precipitation_max_month_mm', monthKey: 'precipitation_max_month' }
                 ]
             },
@@ -764,6 +715,10 @@ $manifestHref = appAssetPath('manifest.json');
                 data: yearlyStats.map(row => row[definition.dataKey]),
                 borderColor: palette.stroke,
                 backgroundColor: palette.fill,
+                pointBackgroundColor: palette.stroke,
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointStyle: 'circle',
                 borderWidth: activeChartType === 'line' ? 3 : 1,
                 borderRadius: activeChartType === 'bar' ? 3 : 0,
                 fill: activeChartType === 'line' && metricConfig[activeMetric].datasets.length === 1,
@@ -856,7 +811,10 @@ $manifestHref = appAssetPath('manifest.json');
                             legend: {
                                 labels: {
                                     color: colors.text,
-                                    usePointStyle: true
+                                    usePointStyle: true,
+                                    pointStyleWidth: 18,
+                                    boxWidth: 18,
+                                    padding: 18
                                 }
                             },
                             title: {
@@ -869,7 +827,21 @@ $manifestHref = appAssetPath('manifest.json');
                                 }
                             },
                             tooltip: {
+                                displayColors: true,
+                                usePointStyle: true,
+                                boxWidth: 10,
+                                boxHeight: 10,
+                                boxPadding: 8,
                                 callbacks: {
+                                    labelColor: context => ({
+                                        backgroundColor: context.dataset.borderColor,
+                                        borderColor: '#fff',
+                                        borderWidth: 2
+                                    }),
+                                    labelPointStyle: () => ({
+                                        pointStyle: 'circle',
+                                        rotation: 0
+                                    }),
                                     label: context => {
                                         const config = metricConfig[activeMetric];
                                         const definition = config.datasets[context.datasetIndex];
