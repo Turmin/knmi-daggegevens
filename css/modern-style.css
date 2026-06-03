@@ -331,7 +331,7 @@ html.is-standalone .main-container {
     display: grid !important;
     gap: 0.6rem;
     grid-template-columns: minmax(min-content, 1fr) max-content;
-    align-items: center !important;
+    align-items: start !important;
 }
 
 .weather-metric .metric-label,
@@ -376,13 +376,19 @@ small.text-muted {
     font-weight: bold;
     color: var(--primary-blue);
     transition: all 0.3s ease;
-    text-align: right;
+    text-align: left;
     flex: 0 0 auto;
     max-width: none;
     min-width: 0;
     overflow-wrap: normal;
     white-space: nowrap;
     word-break: normal;
+}
+
+.weather-metric .d-flex > .metric-value {
+    align-self: start;
+    justify-self: end;
+    text-align: right;
 }
 
 .metric-range-value {
@@ -816,7 +822,7 @@ a {
         grid-template-columns: minmax(min-content, 1fr) max-content;
     }
 
-    .metric-value {
+    .weather-metric .d-flex > .metric-value {
         max-width: none;
         text-align: right;
     }
@@ -906,6 +912,8 @@ a {
 }
 
 .metric-card-grid .metric-value {
+    align-self: auto;
+    justify-self: start;
     max-width: none;
     text-align: left;
 }
@@ -924,6 +932,8 @@ a {
 }
 
 #monthlyStatsContent .metric-value {
+    align-self: auto;
+    justify-self: start;
     max-width: none;
     text-align: left;
 }
@@ -1389,13 +1399,13 @@ a {
 
 @media (max-width: 420px) {
     .weather-metric .d-flex {
-        align-items: flex-start !important;
-        gap: 0.25rem;
-        grid-template-columns: 1fr;
+        align-items: start !important;
+        gap: 0.45rem;
+        grid-template-columns: minmax(0, 1fr) max-content;
     }
 
-    .metric-value {
-        text-align: left;
+    .weather-metric .d-flex > .metric-value {
+        text-align: right;
     }
 }
 

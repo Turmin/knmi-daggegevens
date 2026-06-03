@@ -279,6 +279,7 @@ if ($initialWeatherJson === false) {
     <meta name="theme-color" content="#0a66c2">
     <meta name="application-name" content="KNMI Weer">
     <meta name="apple-mobile-web-app-title" content="KNMI Weer">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="description" content="<?php echo h($pageDescription); ?>">
