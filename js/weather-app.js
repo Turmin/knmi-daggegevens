@@ -154,6 +154,10 @@ class WeatherApp {
         this.showLoading();
 
         try {
+            await this.syncDateRange();
+            this.currentDate = this.clampDateToAvailableRange(this.currentDate);
+            this.updateDateDisplay();
+
             await Promise.all([
                 this.loadSelectedChartRange(),
                 this.loadMonthlyStats(),
@@ -706,11 +710,9 @@ class WeatherApp {
 
     async loadInitialData() {
         try {
-            if (this.currentStation !== this.defaultStation) {
-                await this.syncDateRange();
-                this.currentDate = this.clampDateToAvailableRange(this.currentDate);
-                this.updateDateDisplay();
-            }
+            await this.syncDateRange();
+            this.currentDate = this.clampDateToAvailableRange(this.currentDate);
+            this.updateDateDisplay();
 
             await this.loadWeatherData({
                 updateUrl: this.shouldUpdateDateUrl
