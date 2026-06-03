@@ -867,7 +867,8 @@ $manifestHref = appAssetPath('manifest.json');
                 borderColor: palette.stroke,
                 backgroundColor: palette.fill,
                 pointBackgroundColor: palette.stroke,
-                pointBorderColor: palette.stroke,
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
                 pointStyle: 'circle',
                 borderWidth: activeChartType === 'line' ? 3 : 1,
                 borderRadius: activeChartType === 'bar' ? 3 : 0,
@@ -984,9 +985,9 @@ $manifestHref = appAssetPath('manifest.json');
                                 boxPadding: 8,
                                 callbacks: {
                                     labelColor: context => ({
-                                        borderColor: context.dataset.borderColor,
                                         backgroundColor: context.dataset.borderColor,
-                                        borderWidth: 0
+                                        borderColor: '#fff',
+                                        borderWidth: 2
                                     }),
                                     labelPointStyle: () => ({
                                         pointStyle: 'circle',

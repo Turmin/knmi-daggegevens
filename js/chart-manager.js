@@ -79,7 +79,11 @@ class ChartManager {
                         titleColor: '#fff',
                         bodyColor: '#fff',
                         cornerRadius: 8,
-                        displayColors: false,
+                        displayColors: true,
+                        usePointStyle: true,
+                        boxWidth: 10,
+                        boxHeight: 10,
+                        boxPadding: 8,
                         titleFont: {
                             size: 14,
                             weight: 'bold'
@@ -89,6 +93,19 @@ class ChartManager {
                         },
                         padding: 12,
                         callbacks: {
+                            labelColor: function(context) {
+                                return {
+                                    backgroundColor: context.dataset.borderColor,
+                                    borderColor: '#fff',
+                                    borderWidth: 2
+                                };
+                            },
+                            labelPointStyle: function() {
+                                return {
+                                    pointStyle: 'circle',
+                                    rotation: 0
+                                };
+                            },
                             title: function(context) {
                                 return context[0].label;
                             },
