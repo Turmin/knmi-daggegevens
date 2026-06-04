@@ -848,6 +848,10 @@ a {
         height: 300px;
         padding: 0.5rem;
     }
+
+    .main-chart-container {
+        height: 420px;
+    }
     
     .btn-group .btn {
         padding: 0.25rem 0.5rem;
@@ -900,6 +904,10 @@ a {
     .chart-container {
         height: 250px;
         padding: 0.25rem;
+    }
+
+    .main-chart-container {
+        height: 460px;
     }
     
     .btn-group {

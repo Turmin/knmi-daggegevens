@@ -772,7 +772,7 @@ if ($initialWeatherJson === false) {
                         </div>
                     </div>
                     <div class="card-body">
-                        <div class="chart-container">
+                        <div class="chart-container main-chart-container">
                             <canvas id="mainChart" role="img" data-i18n-aria-label="statistics" aria-label="Statistieken" aria-describedby="mainChartSummary"></canvas>
                         </div>
                         <p class="visually-hidden" id="mainChartSummary" aria-live="polite" aria-atomic="true" data-i18n="chartSummaryNoData">Geen grafiekdata beschikbaar.</p>
