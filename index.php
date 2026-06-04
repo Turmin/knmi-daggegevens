@@ -733,10 +733,9 @@ if ($initialWeatherJson === false) {
             <div class="col-12">
                 <div class="weather-card">
                     <div class="card-header">
-                        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center">
-                            <h4 class="mb-2 mb-md-0">
+                        <div class="d-flex chart-header-actions justify-content-between align-items-center gap-2">
+                            <h4 class="mb-0">
                                 <i class="bi bi-graph-up me-2"></i><span data-i18n="statistics">Statistieken</span>
-                                <small class="text-light" id="chartRangeLabel">Laatste 7 dagen</small>
                             </h4>
                             <div class="btn-group btn-group-sm chart-type-actions" role="group" data-i18n-aria-label="chartType" aria-label="Grafiektype">
                                 <input type="radio" class="btn-check" name="chartType" id="tempChart" autocomplete="off" aria-label="Temperatuur" data-i18n-aria-label="chartTemp" checked>

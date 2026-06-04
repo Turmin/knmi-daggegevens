@@ -1645,6 +1645,15 @@ a:focus-visible,
     text-align: center;
 }
 
+.chart-header-actions h4 {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.chart-header-actions .chart-type-actions {
+    flex: 0 0 auto;
+}
+
 .chart-type-actions,
 .yearly-chart-actions {
     flex-direction: row !important;
@@ -1685,6 +1694,18 @@ a:focus-visible,
 .chart-type-actions > .btn:not(:first-of-type),
 .yearly-chart-actions > .btn:not(:first-child) {
     margin-left: -1px !important;
+}
+
+@media (max-width: 420px) {
+    .chart-header-actions h4 {
+        font-size: 1.05rem;
+    }
+
+    .chart-type-actions > .btn {
+        min-width: 32px;
+        padding-left: 0.45rem;
+        padding-right: 0.45rem;
+    }
 }
 
 .yearly-chart-container {
