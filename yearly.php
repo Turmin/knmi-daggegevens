@@ -229,7 +229,8 @@ $manifestHref = appAssetPath('manifest.json');
     <link rel="stylesheet" href="css/modern-style.css?v=<?php echo filemtime(__DIR__ . '/css/modern-style.css'); ?>">
 </head>
 <body class="yearly-page">
-    <div class="container-fluid main-container">
+    <a class="skip-link" href="#mainContent" data-i18n="skipToContent">Direct naar inhoud</a>
+    <main class="container-fluid main-container" id="mainContent" tabindex="-1">
         <div class="row mb-4">
             <div class="col-12">
                 <div class="weather-card">
@@ -420,25 +421,25 @@ $manifestHref = appAssetPath('manifest.json');
                             </h4>
                             <div class="d-flex flex-wrap gap-2 justify-content-md-end">
                                 <div class="btn-group btn-group-sm yearly-chart-actions" role="group" data-i18n-aria-label="metricType" aria-label="Statistiek">
-                                    <button type="button" class="btn btn-outline-light active" data-metric-type="temperature" data-i18n-title="temperature" data-i18n-aria-label="temperature" title="Temperatuur" aria-label="Temperatuur">
-                                        <i class="bi bi-thermometer-half"></i>
+                                    <button type="button" class="btn btn-outline-light active" data-metric-type="temperature" data-i18n-title="temperature" data-i18n-aria-label="temperature" title="Temperatuur" aria-label="Temperatuur" aria-pressed="true">
+                                        <i class="bi bi-thermometer-half" aria-hidden="true"></i>
                                     </button>
-                                    <button type="button" class="btn btn-outline-light" data-metric-type="sunshine" data-i18n-title="sunshine" data-i18n-aria-label="sunshine" title="Zon" aria-label="Zon">
-                                        <i class="bi bi-sun"></i>
+                                    <button type="button" class="btn btn-outline-light" data-metric-type="sunshine" data-i18n-title="sunshine" data-i18n-aria-label="sunshine" title="Zon" aria-label="Zon" aria-pressed="false">
+                                        <i class="bi bi-sun" aria-hidden="true"></i>
                                     </button>
-                                    <button type="button" class="btn btn-outline-light" data-metric-type="precipitation" data-i18n-title="precipitation" data-i18n-aria-label="precipitation" title="Neerslag" aria-label="Neerslag">
-                                        <i class="bi bi-droplet"></i>
+                                    <button type="button" class="btn btn-outline-light" data-metric-type="precipitation" data-i18n-title="precipitation" data-i18n-aria-label="precipitation" title="Neerslag" aria-label="Neerslag" aria-pressed="false">
+                                        <i class="bi bi-droplet" aria-hidden="true"></i>
                                     </button>
                                 </div>
                                 <div class="btn-group btn-group-sm yearly-chart-actions" role="group" data-i18n-aria-label="chartType" aria-label="Grafiektype">
-                                    <button type="button" class="btn btn-outline-light" data-chart-type="bar" data-i18n-title="barChart" data-i18n-aria-label="barChart" title="Staafdiagram" aria-label="Staafdiagram">
-                                        <i class="bi bi-bar-chart"></i>
+                                    <button type="button" class="btn btn-outline-light" data-chart-type="bar" data-i18n-title="barChart" data-i18n-aria-label="barChart" title="Staafdiagram" aria-label="Staafdiagram" aria-pressed="false">
+                                        <i class="bi bi-bar-chart" aria-hidden="true"></i>
                                     </button>
-                                    <button type="button" class="btn btn-outline-light active" data-chart-type="line" data-i18n-title="lineChart" data-i18n-aria-label="lineChart" title="Lijndiagram" aria-label="Lijndiagram">
-                                        <i class="bi bi-activity"></i>
+                                    <button type="button" class="btn btn-outline-light active" data-chart-type="line" data-i18n-title="lineChart" data-i18n-aria-label="lineChart" title="Lijndiagram" aria-label="Lijndiagram" aria-pressed="true">
+                                        <i class="bi bi-activity" aria-hidden="true"></i>
                                     </button>
                                     <button type="button" class="btn btn-outline-light" id="downloadChart" data-i18n-title="downloadChart" data-i18n-aria-label="downloadChart" title="Grafiek downloaden" aria-label="Grafiek downloaden">
-                                        <i class="bi bi-download"></i>
+                                        <i class="bi bi-download" aria-hidden="true"></i>
                                     </button>
                                 </div>
                             </div>
@@ -446,8 +447,9 @@ $manifestHref = appAssetPath('manifest.json');
                     </div>
                     <div class="card-body">
                         <div class="chart-container yearly-chart-container">
-                            <canvas id="yearlyChart"></canvas>
+                            <canvas id="yearlyChart" role="img" data-i18n-aria-label="yearlyChart" aria-label="Jaarstatistieken per jaar" aria-describedby="yearlyChartSummary"></canvas>
                         </div>
+                        <p class="visually-hidden" id="yearlyChartSummary" aria-live="polite" aria-atomic="true" data-i18n="yearlyChartSummaryNoData">Geen jaarstatistiek grafiekdata beschikbaar.</p>
                     </div>
                 </div>
             </div>
@@ -506,7 +508,7 @@ $manifestHref = appAssetPath('manifest.json');
                 </div>
             </div>
         </footer>
-    </div>
+    </main>
 
     <script src="js/app-i18n.js?v=<?php echo filemtime(__DIR__ . '/js/app-i18n.js'); ?>"></script>
     <script>
@@ -700,8 +702,8 @@ $manifestHref = appAssetPath('manifest.json');
                     ]
                     : [
                         { stroke: '#0a66c2', fill: 'rgba(10, 102, 194, 0.22)' },
-                        { stroke: '#0f9488', fill: 'rgba(15, 148, 136, 0.20)' },
-                        { stroke: '#fd7e14', fill: 'rgba(253, 126, 20, 0.20)' }
+                        { stroke: '#087d76', fill: 'rgba(8, 125, 118, 0.20)' },
+                        { stroke: '#b45309', fill: 'rgba(180, 83, 9, 0.20)' }
                     ]
             };
         }
@@ -745,7 +747,28 @@ $manifestHref = appAssetPath('manifest.json');
             yearlyChart.options.scales.y.title.color = colors.text;
             yearlyChart.options.scales.y.title.text = t(config.axisKey);
             yearlyChart.options.scales.y.beginAtZero = config.beginAtZero;
+            updateYearlyChartSummary(config);
             yearlyChart.update(mode);
+        }
+
+        function updateYearlyChartSummary(config = metricConfig[activeMetric]) {
+            const summary = document.getElementById('yearlyChartSummary');
+            if (!summary) return;
+
+            if (!yearlyStats.length) {
+                summary.textContent = t('yearlyChartSummaryNoData');
+                return;
+            }
+
+            const years = yearlyStats.map(row => row.year).filter(Boolean);
+            const datasets = config.datasets.map(definition => t(definition.labelKey)).join(', ');
+
+            summary.textContent = t('yearlyChartSummary', {
+                title: t(config.titleKey),
+                first: years[0] || '--',
+                last: years[years.length - 1] || '--',
+                datasets
+            });
         }
 
         function updateChartLanguage() {
@@ -758,11 +781,15 @@ $manifestHref = appAssetPath('manifest.json');
 
         function updateMetricControls() {
             document.querySelectorAll('[data-metric-type]').forEach(button => {
-                button.classList.toggle('active', button.dataset.metricType === activeMetric);
+                const isActive = button.dataset.metricType === activeMetric;
+                button.classList.toggle('active', isActive);
+                button.setAttribute('aria-pressed', String(isActive));
             });
 
             document.querySelectorAll('[data-chart-type]').forEach(button => {
-                button.classList.toggle('active', button.dataset.chartType === activeChartType);
+                const isActive = button.dataset.chartType === activeChartType;
+                button.classList.toggle('active', isActive);
+                button.setAttribute('aria-pressed', String(isActive));
             });
         }
 

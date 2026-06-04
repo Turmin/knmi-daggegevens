@@ -30,13 +30,13 @@ class ChartManager {
                 datasets: [{
                     label: this.t('chartDatasetTempMax'),
                     data: [],
-                    borderColor: 'rgb(255, 99, 132)',
-                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    borderColor: '#b83a48',
+                    backgroundColor: 'rgba(184, 58, 72, 0.18)',
                     tension: 0.4,
                     fill: true,
                     pointRadius: 4,
                     pointHoverRadius: 6,
-                    pointBackgroundColor: 'rgb(255, 99, 132)',
+                    pointBackgroundColor: '#b83a48',
                     pointBorderColor: '#fff',
                     pointBorderWidth: 2
                 }]
@@ -281,6 +281,7 @@ class ChartManager {
         
         this.chart.options.plugins.title.text = chartConfig.title;
         this.chart.options.scales.y.title.text = chartConfig.yAxisTitle;
+        this.updateChartSummary(chartConfig.title, labels, datasets, hasValidData);
         
         // Adjust y-axis based on data type
         if (type === 'rain' || type === 'radiation') {
@@ -302,7 +303,26 @@ class ChartManager {
         }];
         
         this.chart.options.plugins.title.text = title;
+        this.updateChartSummary(title, [], [], false);
         this.chart.update('active');
+    }
+
+    updateChartSummary(title, labels, datasets, hasValidData) {
+        const summary = document.getElementById('mainChartSummary');
+        if (!summary) return;
+
+        if (!hasValidData || !labels.length || !datasets.length) {
+            summary.textContent = this.t('chartSummaryNoData');
+            return;
+        }
+
+        summary.textContent = this.t('chartSummary', {
+            title,
+            range: this.rangeLabel,
+            first: labels[0],
+            last: labels[labels.length - 1],
+            datasets: datasets.map(dataset => dataset.label).join(', ')
+        });
     }
 
     getChartConfig(type) {
@@ -317,24 +337,24 @@ class ChartManager {
                         dataKey: 'temp_min',
                         dataset: {
                             label: this.t('chartDatasetTempMin'),
-                            borderColor: 'rgb(54, 162, 235)',
-                            backgroundColor: 'rgba(54, 162, 235, 0.14)'
+                            borderColor: '#0a66c2',
+                            backgroundColor: 'rgba(10, 102, 194, 0.14)'
                         }
                     },
                     {
                         dataKey: 'temp_avg',
                         dataset: {
                             label: this.t('chartDatasetTempAvg'),
-                            borderColor: 'rgb(255, 205, 86)',
-                            backgroundColor: 'rgba(255, 205, 86, 0.14)'
+                            borderColor: '#b45309',
+                            backgroundColor: 'rgba(180, 83, 9, 0.14)'
                         }
                     },
                     {
                         dataKey: 'temp_max',
                         dataset: {
                             label: this.t('chartDatasetTempMax'),
-                            borderColor: 'rgb(255, 99, 132)',
-                            backgroundColor: 'rgba(255, 99, 132, 0.18)'
+                            borderColor: '#b83a48',
+                            backgroundColor: 'rgba(184, 58, 72, 0.18)'
                         }
                     }
                 ]
@@ -344,8 +364,8 @@ class ChartManager {
                 yAxisTitle: this.t('chartAxisRain'),
                 dataset: {
                     label: this.t('chartDatasetRain'),
-                    borderColor: 'rgb(54, 162, 235)',
-                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    borderColor: '#0a66c2',
+                    backgroundColor: 'rgba(10, 102, 194, 0.18)',
                 }
             },
             wind: {
@@ -353,8 +373,8 @@ class ChartManager {
                 yAxisTitle: this.t('chartAxisWind'),
                 dataset: {
                     label: this.t('chartDatasetWind'),
-                    borderColor: 'rgb(75, 192, 192)',
-                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    borderColor: '#087d76',
+                    backgroundColor: 'rgba(8, 125, 118, 0.18)',
                 }
             },
             sun: {
@@ -362,8 +382,8 @@ class ChartManager {
                 yAxisTitle: this.t('chartAxisSun'),
                 dataset: {
                     label: this.t('chartDatasetSun'),
-                    borderColor: 'rgb(255, 205, 86)',
-                    backgroundColor: 'rgba(255, 205, 86, 0.2)',
+                    borderColor: '#b45309',
+                    backgroundColor: 'rgba(180, 83, 9, 0.18)',
                 }
             },
             pressure: {
@@ -371,8 +391,8 @@ class ChartManager {
                 yAxisTitle: this.t('chartAxisPressure'),
                 dataset: {
                     label: this.t('chartDatasetPressure'),
-                    borderColor: 'rgb(120, 144, 156)',
-                    backgroundColor: 'rgba(120, 144, 156, 0.2)',
+                    borderColor: '#5c6770',
+                    backgroundColor: 'rgba(92, 103, 112, 0.18)',
                 }
             },
             radiation: {
@@ -380,8 +400,8 @@ class ChartManager {
                 yAxisTitle: this.t('chartAxisRadiation'),
                 dataset: {
                     label: this.t('chartDatasetRadiation'),
-                    borderColor: 'rgb(255, 159, 64)',
-                    backgroundColor: 'rgba(255, 159, 64, 0.2)',
+                    borderColor: '#b45309',
+                    backgroundColor: 'rgba(180, 83, 9, 0.18)',
                 }
             }
         };

@@ -318,7 +318,8 @@ if ($initialWeatherJson === false) {
     <link rel="stylesheet" href="css/modern-style.css?v=<?php echo filemtime(__DIR__ . '/css/modern-style.css'); ?>">
 </head>
 <body>
-    <div class="container-fluid main-container" id="mainContent">
+    <a class="skip-link" href="#mainContent" data-i18n="skipToContent">Direct naar inhoud</a>
+    <main class="container-fluid main-container" id="mainContent" tabindex="-1">
         <!-- Header -->
         <div class="row mb-4">
             <div class="col-12">
@@ -373,12 +374,15 @@ if ($initialWeatherJson === false) {
                     <div class="row g-2 align-items-center">
                         <div class="col-md-4 col-lg-4">
                             <div class="input-group">
-                                <span class="input-group-text">
+                                <label class="input-group-text" for="primaryDate" title="Datum" data-i18n-title="date">
                                     <i class="bi bi-calendar-date"></i>
-                                </span>
+                                    <span class="visually-hidden" data-i18n="date">Datum</span>
+                                </label>
                                 <input type="date" 
                                        class="form-control" 
                                        id="primaryDate" 
+                                       aria-label="Datum"
+                                       data-i18n-aria-label="date"
                                        value="<?php echo $defaultDate; ?>"
                                        min="<?php echo $firstDate; ?>"
                                        max="<?php echo $lastDate; ?>">
@@ -401,14 +405,14 @@ if ($initialWeatherJson === false) {
                         </div>
                         <div class="col-md-4 col-lg-3">
                             <div class="btn-group w-100 date-action-group" role="group" aria-label="Datum navigatie">
-                                <button type="button" class="btn btn-outline-primary btn-custom" id="prevDay" title="Vorige dag (Ctrl+←)" data-i18n-title="prevDay">
-                                    <i class="bi bi-chevron-left"></i> <span class="d-none d-sm-inline" data-i18n="prevDayShort">Vorige</span>
+                                <button type="button" class="btn btn-outline-primary btn-custom" id="prevDay" title="Vorige dag (Ctrl+←)" aria-label="Vorige dag" data-i18n-title="prevDay" data-i18n-aria-label="prevDay">
+                                    <i class="bi bi-chevron-left" aria-hidden="true"></i> <span class="d-none d-sm-inline" data-i18n="prevDayShort">Vorige</span>
                                 </button>
-                                <button type="button" class="btn btn-outline-primary btn-custom" id="latestDay" title="Laatste dag (Ctrl+T)" data-i18n-title="latestDay">
-                                    <i class="bi bi-calendar-check"></i> <span class="d-none d-sm-inline" data-i18n="latestDayShort">Laatste</span>
+                                <button type="button" class="btn btn-outline-primary btn-custom" id="latestDay" title="Laatste dag (Ctrl+T)" aria-label="Laatste dag" data-i18n-title="latestDay" data-i18n-aria-label="latestDay">
+                                    <i class="bi bi-calendar-check" aria-hidden="true"></i> <span class="d-none d-sm-inline" data-i18n="latestDayShort">Laatste</span>
                                 </button>
-                                <button type="button" class="btn btn-outline-primary btn-custom" id="nextDay" title="Volgende dag (Ctrl+→)" data-i18n-title="nextDay">
-                                    <span class="d-none d-sm-inline" data-i18n="nextDayShort">Volgende</span> <i class="bi bi-chevron-right"></i>
+                                <button type="button" class="btn btn-outline-primary btn-custom" id="nextDay" title="Volgende dag (Ctrl+→)" aria-label="Volgende dag" data-i18n-title="nextDay" data-i18n-aria-label="nextDay">
+                                    <span class="d-none d-sm-inline" data-i18n="nextDayShort">Volgende</span> <i class="bi bi-chevron-right" aria-hidden="true"></i>
                                 </button>
                                 <!-- <button type="button" class="btn btn-outline-secondary btn-custom" id="refreshData" data-i18n-title="refresh" aria-label="Ververs data">
                                     <i class="bi bi-arrow-clockwise"></i>
@@ -434,10 +438,12 @@ if ($initialWeatherJson === false) {
                     <div id="comparisonDatePicker" class="mt-3" style="display: none;">
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <label class="form-label" data-i18n="compareWith">Vergelijk met:</label>
+                                <label class="form-label" for="comparisonDate" data-i18n="compareWith">Vergelijk met:</label>
                                 <input type="date" 
                                        class="form-control" 
                                        id="comparisonDate" 
+                                       aria-label="Vergelijkingsdatum"
+                                       data-i18n-aria-label="comparisonDate"
                                        min="<?php echo $firstDate; ?>"
                                        max="<?php echo $lastDate; ?>">
                             </div>
@@ -461,10 +467,11 @@ if ($initialWeatherJson === false) {
         </div>
 
         <!-- Status Messages -->
-        <div id="statusMessages"></div>
+        <div id="statusMessages" aria-live="polite" aria-atomic="true"></div>
+        <p class="visually-hidden" id="pageUpdateStatus" aria-live="polite" aria-atomic="true"></p>
 
         <!-- Loading Spinner -->
-        <div class="loading-spinner text-center" id="loadingSpinner" style="display: none;">
+        <div class="loading-spinner text-center" id="loadingSpinner" style="display: none;" aria-live="polite" aria-atomic="true">
             <div class="spinner-border text-primary" role="status">
                 <span class="visually-hidden" data-i18n="loading">Laden...</span>
             </div>
@@ -731,48 +738,49 @@ if ($initialWeatherJson === false) {
                                 <i class="bi bi-graph-up me-2"></i><span data-i18n="statistics">Statistieken</span>
                                 <small class="text-light" id="chartRangeLabel">Laatste 7 dagen</small>
                             </h4>
-                            <div class="btn-group flex-wrap" role="group">
-                                <input type="radio" class="btn-check" name="chartType" id="tempChart" autocomplete="off" checked>
-                                <label class="btn btn-outline-light btn-sm" for="tempChart" title="Temperatuurverloop" data-i18n-title="chartTemp">
-                                    <i class="bi bi-thermometer me-1"></i><span data-i18n="chartTemp">Temperatuur</span>
+                            <div class="btn-group btn-group-sm chart-type-actions" role="group" data-i18n-aria-label="chartType" aria-label="Grafiektype">
+                                <input type="radio" class="btn-check" name="chartType" id="tempChart" autocomplete="off" aria-label="Temperatuur" data-i18n-aria-label="chartTemp" checked>
+                                <label class="btn btn-outline-light" for="tempChart" title="Temperatuurverloop" aria-label="Temperatuur" data-i18n-title="chartTemp" data-i18n-aria-label="chartTemp">
+                                    <i class="bi bi-thermometer" aria-hidden="true"></i>
                                 </label>
 
-                                <input type="radio" class="btn-check" name="chartType" id="rainChart" autocomplete="off">
-                                <label class="btn btn-outline-light btn-sm" for="rainChart" title="Neerslagverloop" data-i18n-title="chartRain">
-                                    <i class="bi bi-droplet me-1"></i><span data-i18n="chartRain">Neerslag</span>
+                                <input type="radio" class="btn-check" name="chartType" id="rainChart" autocomplete="off" aria-label="Neerslag" data-i18n-aria-label="chartRain">
+                                <label class="btn btn-outline-light" for="rainChart" title="Neerslagverloop" aria-label="Neerslag" data-i18n-title="chartRain" data-i18n-aria-label="chartRain">
+                                    <i class="bi bi-droplet" aria-hidden="true"></i>
                                 </label>
 
-                                <input type="radio" class="btn-check" name="chartType" id="windChart" autocomplete="off">
-                                <label class="btn btn-outline-light btn-sm" for="windChart" title="Windsnelheidverloop" data-i18n-title="chartWind">
-                                    <i class="bi bi-wind me-1"></i><span data-i18n="chartWind">Wind</span>
+                                <input type="radio" class="btn-check" name="chartType" id="windChart" autocomplete="off" aria-label="Wind" data-i18n-aria-label="chartWind">
+                                <label class="btn btn-outline-light" for="windChart" title="Windsnelheidverloop" aria-label="Wind" data-i18n-title="chartWind" data-i18n-aria-label="chartWind">
+                                    <i class="bi bi-wind" aria-hidden="true"></i>
                                 </label>
 
-                                <input type="radio" class="btn-check" name="chartType" id="sunChart" autocomplete="off">
-                                <label class="btn btn-outline-light btn-sm" for="sunChart" title="Zonnesschijnverloop" data-i18n-title="chartSun">
-                                    <i class="bi bi-sun me-1"></i><span data-i18n="chartSun">Zon</span>
+                                <input type="radio" class="btn-check" name="chartType" id="sunChart" autocomplete="off" aria-label="Zon" data-i18n-aria-label="chartSun">
+                                <label class="btn btn-outline-light" for="sunChart" title="Zonnesschijnverloop" aria-label="Zon" data-i18n-title="chartSun" data-i18n-aria-label="chartSun">
+                                    <i class="bi bi-sun" aria-hidden="true"></i>
                                 </label>
 
-                                <input type="radio" class="btn-check" name="chartType" id="pressureChart" autocomplete="off">
-                                <label class="btn btn-outline-light btn-sm" for="pressureChart" title="Luchtdrukverloop" data-i18n-title="chartPressure">
-                                    <i class="bi bi-speedometer2 me-1"></i><span data-i18n="chartPressure">Luchtdruk</span>
+                                <input type="radio" class="btn-check" name="chartType" id="pressureChart" autocomplete="off" aria-label="Luchtdruk" data-i18n-aria-label="chartPressure">
+                                <label class="btn btn-outline-light" for="pressureChart" title="Luchtdrukverloop" aria-label="Luchtdruk" data-i18n-title="chartPressure" data-i18n-aria-label="chartPressure">
+                                    <i class="bi bi-speedometer2" aria-hidden="true"></i>
                                 </label>
 
-                                <input type="radio" class="btn-check" name="chartType" id="radiationChart" autocomplete="off">
-                                <label class="btn btn-outline-light btn-sm" for="radiationChart" title="Globale straling" data-i18n-title="chartRadiation">
-                                    <i class="bi bi-brightness-high me-1"></i><span data-i18n="chartRadiation">Straling</span>
+                                <input type="radio" class="btn-check" name="chartType" id="radiationChart" autocomplete="off" aria-label="Straling" data-i18n-aria-label="chartRadiation">
+                                <label class="btn btn-outline-light" for="radiationChart" title="Globale straling" aria-label="Straling" data-i18n-title="chartRadiation" data-i18n-aria-label="chartRadiation">
+                                    <i class="bi bi-brightness-high" aria-hidden="true"></i>
                                 </label>
                             </div>
                         </div>
                     </div>
                     <div class="card-body">
                         <div class="chart-container">
-                            <canvas id="mainChart"></canvas>
+                            <canvas id="mainChart" role="img" data-i18n-aria-label="statistics" aria-label="Statistieken" aria-describedby="mainChartSummary"></canvas>
                         </div>
+                        <p class="visually-hidden" id="mainChartSummary" aria-live="polite" aria-atomic="true" data-i18n="chartSummaryNoData">Geen grafiekdata beschikbaar.</p>
                         <div class="chart-controls mt-3 text-center">
-                            <div class="btn-group btn-group-sm chart-range-group" role="group">
-                                <button type="button" class="btn btn-outline-secondary" id="chart7Days" data-i18n="days7">7 dagen</button>
-                                <button type="button" class="btn btn-outline-secondary" id="chart30Days" data-i18n="days30">30 dagen</button>
-                                <button type="button" class="btn btn-outline-secondary" id="chartYear" data-i18n="thisYear">Jaar</button>
+                            <div class="btn-group btn-group-sm chart-range-group" role="group" data-i18n-aria-label="chartRange" aria-label="Grafiekperiode">
+                                <button type="button" class="btn btn-outline-secondary active" id="chart7Days" aria-pressed="true" data-i18n="days7">7 dagen</button>
+                                <button type="button" class="btn btn-outline-secondary" id="chart30Days" aria-pressed="false" data-i18n="days30">30 dagen</button>
+                                <button type="button" class="btn btn-outline-secondary" id="chartYear" aria-pressed="false" data-i18n="thisYear">Jaar</button>
                             </div>
                         </div>
                     </div>
@@ -870,13 +878,13 @@ if ($initialWeatherJson === false) {
                         <span id="lastUpdateText" data-update-time="<?php echo date('c'); ?>">Laatste update: <?php echo date('d-m-Y H:i'); ?></span> •
                         <span id="lastRefreshText"></span>
                         <span id="lastRefreshSeparator" style="display: none;"> • </span>
-                        <a href="javascript:void(0)" id="aboutBtn" class="text-decoration-none" data-i18n="aboutSite">Over deze website</a> •
-                        <a href="javascript:void(0)" id="helpBtn" class="text-decoration-none" data-i18n="helpShortcuts">Help & Sneltoetsen</a>
+                        <button type="button" id="aboutBtn" class="btn btn-link footer-link-button text-decoration-none p-0 align-baseline" data-i18n="aboutSite">Over deze website</button> •
+                        <button type="button" id="helpBtn" class="btn btn-link footer-link-button text-decoration-none p-0 align-baseline" data-i18n="helpShortcuts">Help & Sneltoetsen</button>
                     </p>
                 </div>
             </div>
         </footer>
-    </div>
+    </main>
 
     <!-- Modals -->
     <!-- About Modal -->
@@ -885,7 +893,7 @@ if ($initialWeatherJson === false) {
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" data-i18n="aboutTitle">Over KNMI Daggegevens</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" data-i18n-aria-label="close"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Sluiten" data-i18n-aria-label="close"></button>
                 </div>
                 <div class="modal-body">
                     <p data-i18n="aboutText">Deze interface toont historische weergegevens van het KNMI (Koninklijk Nederlands Meteorologisch Instituut) voor meetstation De Bilt.</p>
@@ -913,7 +921,7 @@ if ($initialWeatherJson === false) {
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" data-i18n="helpTitle">Help & Sneltoetsen</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" data-i18n-aria-label="close"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Sluiten" data-i18n-aria-label="close"></button>
                 </div>
                 <div class="modal-body">
                     <h6 data-i18n="shortcuts">Sneltoetsen:</h6>

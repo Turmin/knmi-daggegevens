@@ -909,7 +909,10 @@ class WeatherApp {
     }
 
     updateChartRangeControls(rangeKey) {
-        document.querySelectorAll('.chart-controls .btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.chart-controls .btn').forEach(btn => {
+            btn.classList.remove('active');
+            btn.setAttribute('aria-pressed', 'false');
+        });
 
         const buttonId = rangeKey === 'year'
             ? 'chartYear'
@@ -919,6 +922,7 @@ class WeatherApp {
         const button = document.getElementById(buttonId);
         if (button) {
             button.classList.add('active');
+            button.setAttribute('aria-pressed', 'true');
         }
     }
 
@@ -1083,6 +1087,7 @@ class WeatherApp {
         if (updateUrl) {
             this.updateBrowserDateUrl(data.date);
         }
+        this.announcePageUpdate(data.date);
 
         // Temperature
         this.updateElement('primaryTemp', this.formatTemperature(data.temperature.avg));
@@ -1550,6 +1555,15 @@ class WeatherApp {
         }
     }
 
+    announcePageUpdate(dateString) {
+        const status = document.getElementById('pageUpdateStatus');
+        if (status) {
+            status.textContent = this.t('pageUpdateStatus', {
+                date: this.formatDisplayDate(dateString)
+            });
+        }
+    }
+
     escapeHtml(value) {
         return String(value).replace(/[&<>"']/g, char => ({
             '&': '&amp;',
@@ -1738,7 +1752,7 @@ class WeatherApp {
         
         const alertHTML = `
             <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
-                <i class="bi bi-${icon} me-2"></i>
+                <i class="bi bi-${icon} me-2" aria-hidden="true"></i>
                 ${message}
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="${this.t('close')}"></button>
             </div>
