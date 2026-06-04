@@ -694,23 +694,44 @@ $manifestHref = appAssetPath('manifest.json');
             return {
                 text: isDark ? '#edf4fb' : '#172033',
                 grid: isDark ? 'rgba(196, 217, 236, 0.16)' : 'rgba(20, 52, 85, 0.12)',
-                palette: isDark
-                    ? [
-                        { stroke: '#6bb6ff', fill: 'rgba(107, 182, 255, 0.32)' },
-                        { stroke: '#5ee0d1', fill: 'rgba(94, 224, 209, 0.24)' },
-                        { stroke: '#ffbd6b', fill: 'rgba(255, 189, 107, 0.24)' }
-                    ]
-                    : [
-                        { stroke: '#0a66c2', fill: 'rgba(10, 102, 194, 0.22)' },
-                        { stroke: '#087d76', fill: 'rgba(8, 125, 118, 0.20)' },
-                        { stroke: '#b45309', fill: 'rgba(180, 83, 9, 0.20)' }
-                    ]
+                palettes: isDark
+                    ? {
+                        temperature: [
+                            { stroke: '#6bb6ff', fill: 'rgba(107, 182, 255, 0.28)' },
+                            { stroke: '#ffd166', fill: 'rgba(255, 209, 102, 0.26)' },
+                            { stroke: '#ff7a7a', fill: 'rgba(255, 122, 122, 0.24)' }
+                        ],
+                        precipitation: [
+                            { stroke: '#9bd4ff', fill: 'rgba(155, 212, 255, 0.24)' },
+                            { stroke: '#6bb6ff', fill: 'rgba(107, 182, 255, 0.28)' },
+                            { stroke: '#2f80ed', fill: 'rgba(47, 128, 237, 0.28)' }
+                        ],
+                        sunshine: [
+                            { stroke: '#ffd166', fill: 'rgba(255, 209, 102, 0.28)' }
+                        ]
+                    }
+                    : {
+                        temperature: [
+                            { stroke: '#2f80ed', fill: 'rgba(47, 128, 237, 0.14)' },
+                            { stroke: '#f2c94c', fill: 'rgba(242, 201, 76, 0.16)' },
+                            { stroke: '#e55353', fill: 'rgba(229, 83, 83, 0.18)' }
+                        ],
+                        precipitation: [
+                            { stroke: '#4dabf7', fill: 'rgba(77, 171, 247, 0.18)' },
+                            { stroke: '#0a66c2', fill: 'rgba(10, 102, 194, 0.2)' },
+                            { stroke: '#064789', fill: 'rgba(6, 71, 137, 0.22)' }
+                        ],
+                        sunshine: [
+                            { stroke: '#f2c94c', fill: 'rgba(242, 201, 76, 0.2)' }
+                        ]
+                    }
             };
         }
 
         function datasetFor(definition, index) {
             const colors = chartColors();
-            const palette = colors.palette[index % colors.palette.length];
+            const metricPalette = colors.palettes[activeMetric] || colors.palettes.temperature;
+            const palette = metricPalette[index % metricPalette.length];
             return {
                 type: activeChartType,
                 label: t(definition.labelKey),

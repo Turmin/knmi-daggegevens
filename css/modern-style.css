@@ -3,10 +3,10 @@
     --primary-blue: #0a66c2;
     --light-blue: #eef7ff;
     --dark-blue: #084f94;
-    --accent-teal: #087d76;
+    --accent-teal: #0f9488;
     --success-green: #1f7a35;
-    --warning-orange: #b45309;
-    --danger-red: #b83a48;
+    --warning-orange: #f2c94c;
+    --danger-red: #e55353;
     --page-bg-color: #eef7ff;
     --page-bg: linear-gradient(135deg, #eef7ff 0%, #f7fbf8 52%, #e9f5f2 100%);
     --surface: rgba(255, 255, 255, 0.96);
@@ -112,7 +112,7 @@ body::before {
 }
 
 .text-info {
-    color: var(--accent-teal) !important;
+    color: var(--primary-blue) !important;
 }
 
 .text-warning {
@@ -1003,7 +1003,7 @@ a {
 }
 
 .calendar-stat .metric-negative {
-    color: var(--accent-teal);
+    color: var(--primary-blue);
 }
 
 .calendar-stat .metric-neutral {

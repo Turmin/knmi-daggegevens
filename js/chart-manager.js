@@ -30,13 +30,13 @@ class ChartManager {
                 datasets: [{
                     label: this.t('chartDatasetTempMax'),
                     data: [],
-                    borderColor: '#b83a48',
-                    backgroundColor: 'rgba(184, 58, 72, 0.18)',
+                    borderColor: '#e55353',
+                    backgroundColor: 'rgba(229, 83, 83, 0.18)',
                     tension: 0.4,
                     fill: true,
                     pointRadius: 4,
                     pointHoverRadius: 6,
-                    pointBackgroundColor: '#b83a48',
+                    pointBackgroundColor: '#e55353',
                     pointBorderColor: '#fff',
                     pointBorderWidth: 2
                 }]
@@ -337,24 +337,24 @@ class ChartManager {
                         dataKey: 'temp_min',
                         dataset: {
                             label: this.t('chartDatasetTempMin'),
-                            borderColor: '#0a66c2',
-                            backgroundColor: 'rgba(10, 102, 194, 0.14)'
+                            borderColor: '#2f80ed',
+                            backgroundColor: 'rgba(47, 128, 237, 0.14)'
                         }
                     },
                     {
                         dataKey: 'temp_avg',
                         dataset: {
                             label: this.t('chartDatasetTempAvg'),
-                            borderColor: '#b45309',
-                            backgroundColor: 'rgba(180, 83, 9, 0.14)'
+                            borderColor: '#f2c94c',
+                            backgroundColor: 'rgba(242, 201, 76, 0.16)'
                         }
                     },
                     {
                         dataKey: 'temp_max',
                         dataset: {
                             label: this.t('chartDatasetTempMax'),
-                            borderColor: '#b83a48',
-                            backgroundColor: 'rgba(184, 58, 72, 0.18)'
+                            borderColor: '#e55353',
+                            backgroundColor: 'rgba(229, 83, 83, 0.18)'
                         }
                     }
                 ]
@@ -373,8 +373,8 @@ class ChartManager {
                 yAxisTitle: this.t('chartAxisWind'),
                 dataset: {
                     label: this.t('chartDatasetWind'),
-                    borderColor: '#087d76',
-                    backgroundColor: 'rgba(8, 125, 118, 0.18)',
+                    borderColor: '#0f9488',
+                    backgroundColor: 'rgba(15, 148, 136, 0.18)',
                 }
             },
             sun: {
@@ -382,8 +382,8 @@ class ChartManager {
                 yAxisTitle: this.t('chartAxisSun'),
                 dataset: {
                     label: this.t('chartDatasetSun'),
-                    borderColor: '#b45309',
-                    backgroundColor: 'rgba(180, 83, 9, 0.18)',
+                    borderColor: '#f2c94c',
+                    backgroundColor: 'rgba(242, 201, 76, 0.2)',
                 }
             },
             pressure: {
@@ -400,8 +400,8 @@ class ChartManager {
                 yAxisTitle: this.t('chartAxisRadiation'),
                 dataset: {
                     label: this.t('chartDatasetRadiation'),
-                    borderColor: '#b45309',
-                    backgroundColor: 'rgba(180, 83, 9, 0.18)',
+                    borderColor: '#f2c94c',
+                    backgroundColor: 'rgba(242, 201, 76, 0.2)',
                 }
             }
         };
