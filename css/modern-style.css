@@ -890,8 +890,8 @@ a {
 }
 
 .metric-card-grid {
-    margin-left: 0;
-    margin-right: 0;
+    margin-left: calc(var(--bs-gutter-x) * -0.5);
+    margin-right: calc(var(--bs-gutter-x) * -0.5);
 }
 
 .metric-card-grid > [class*="col-"] {
