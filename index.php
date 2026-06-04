@@ -13,6 +13,36 @@ function isValidDateString($date) {
     return $parsed && $parsed->format('Y-m-d') === $date;
 }
 
+function minSelectableDate() {
+    return '1901-01-01';
+}
+
+function maxSelectableDate() {
+    return date('Y-m-d', strtotime('yesterday'));
+}
+
+function constrainDateRange($firstDate, $lastDate) {
+    $minimum = minSelectableDate();
+    $maximum = maxSelectableDate();
+    $firstDate = max((string)$firstDate, $minimum);
+    $lastDate = min((string)$lastDate, $maximum);
+
+    if ($lastDate < $minimum) {
+        $firstDate = $minimum;
+        $lastDate = $minimum;
+    } elseif ($firstDate > $maximum) {
+        $firstDate = $maximum;
+        $lastDate = $maximum;
+    } elseif ($lastDate < $firstDate) {
+        $firstDate = $lastDate;
+    }
+
+    return [
+        'first_date' => $firstDate,
+        'last_date' => $lastDate
+    ];
+}
+
 function getRequestedDate() {
     foreach (['date', 'datum'] as $param) {
         if (!empty($_GET[$param])) {
@@ -202,19 +232,20 @@ try {
     
     // Get date range for navigation limits
     $dateRange = $weatherData->getDateRange($defaultStation);
+    $dateRange = constrainDateRange($dateRange['first_date'], $dateRange['last_date']);
     $firstDate = $dateRange['first_date'];
     $lastDate = $dateRange['last_date'];
     
 } catch(Exception $e) {
     error_log("Initialization error: " . $e->getMessage());
-    $firstDate = '1970-01-01';
-    $lastDate = date('Y-m-d');
+    $firstDate = minSelectableDate();
+    $lastDate = maxSelectableDate();
 }
 
 $pageLanguage = isset($_GET['lang']) && $_GET['lang'] === 'en' ? 'en' : 'nl';
 
-// Set default date (today or latest available)
-$defaultDate = min(date('Y-m-d'), $lastDate);
+// Set default date to the latest selectable available date.
+$defaultDate = $lastDate;
 $requestedDateIsCanonical = false;
 if ($requestedDate && isValidDateString($requestedDate) && $requestedDate >= $firstDate && $requestedDate <= $lastDate) {
     $defaultDate = $requestedDate;

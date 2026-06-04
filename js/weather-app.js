@@ -3,9 +3,12 @@ class WeatherApp {
     constructor() {
         this.api = new WeatherAPI(API_BASE_URL);
         this.chartManager = null;
-        this.currentDate = this.parseAPIDate(DEFAULT_DATE);
-        this.firstDate = FIRST_DATE;
-        this.lastDate = LAST_DATE;
+        this.minimumSelectableDate = '1901-01-01';
+        this.maximumSelectableDate = this.getYesterdayDateString();
+        const selectableRange = this.selectableDateRange(FIRST_DATE, LAST_DATE);
+        this.firstDate = selectableRange.firstDate;
+        this.lastDate = selectableRange.lastDate;
+        this.currentDate = this.clampDateToAvailableRange(this.parseAPIDate(DEFAULT_DATE));
         this.defaultStation = typeof DEFAULT_STATION !== 'undefined' ? Number(DEFAULT_STATION) : 260;
         this.stations = Array.isArray(window.KNMI_STATIONS)
             ? window.KNMI_STATIONS
@@ -1526,8 +1529,9 @@ class WeatherApp {
             throw new Error('No date range available for station');
         }
 
-        this.firstDate = range.first_date;
-        this.lastDate = range.last_date;
+        const selectableRange = this.selectableDateRange(range.first_date, range.last_date);
+        this.firstDate = selectableRange.firstDate;
+        this.lastDate = selectableRange.lastDate;
 
         ['primaryDate', 'comparisonDate'].forEach(id => {
             const input = document.getElementById(id);
@@ -1597,6 +1601,40 @@ class WeatherApp {
         if (primaryDateEl) {
             primaryDateEl.value = this.formatDateForAPI(this.currentDate);
         }
+    }
+
+    getYesterdayDateString() {
+        const date = new Date();
+        date.setDate(date.getDate() - 1);
+        return this.formatDateForAPI(date);
+    }
+
+    selectableDateRange(firstDate, lastDate) {
+        const minimum = this.minimumSelectableDate;
+        const maximum = this.maximumSelectableDate;
+        const boundedFirstDate = firstDate && firstDate > this.minimumSelectableDate
+            ? firstDate
+            : this.minimumSelectableDate;
+        const boundedLastDate = lastDate && lastDate < this.maximumSelectableDate
+            ? lastDate
+            : this.maximumSelectableDate;
+        let nextFirstDate = boundedFirstDate;
+        let nextLastDate = boundedLastDate;
+
+        if (nextLastDate < minimum) {
+            nextFirstDate = minimum;
+            nextLastDate = minimum;
+        } else if (nextFirstDate > maximum) {
+            nextFirstDate = maximum;
+            nextLastDate = maximum;
+        } else if (nextLastDate < nextFirstDate) {
+            nextFirstDate = nextLastDate;
+        }
+
+        return {
+            firstDate: nextFirstDate,
+            lastDate: nextLastDate
+        };
     }
 
     clampDateToAvailableRange(date) {
