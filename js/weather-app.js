@@ -190,7 +190,10 @@ class WeatherApp {
         if (primaryDate) {
             this.enableDatePickerOpen(primaryDate);
             primaryDate.addEventListener('change', (e) => {
-                this.currentDate = this.parseAPIDate(e.target.value);
+                const selectedDate = this.enforceDateInputValue(e.target, 'selectedOutOfRange');
+                if (!selectedDate) return;
+
+                this.currentDate = this.parseAPIDate(selectedDate);
                 this.loadWeatherData();
             });
         }
@@ -820,7 +823,8 @@ class WeatherApp {
         if (!this.comparisonMode) return;
 
         try {
-            const comparisonDateStr = document.getElementById('comparisonDate').value;
+            const comparisonDateEl = document.getElementById('comparisonDate');
+            const comparisonDateStr = this.enforceDateInputValue(comparisonDateEl, 'comparisonOutOfRange');
             if (!comparisonDateStr) return;
 
             const data = await this.api.fetchWeatherData(comparisonDateStr, this.currentStation);
@@ -1538,6 +1542,7 @@ class WeatherApp {
             if (input) {
                 input.min = this.firstDate;
                 input.max = this.lastDate;
+                this.enforceDateInputValue(input);
             }
         });
 
@@ -1635,6 +1640,38 @@ class WeatherApp {
             firstDate: nextFirstDate,
             lastDate: nextLastDate
         };
+    }
+
+    clampDateStringToAvailableRange(dateString) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateString))) {
+            return '';
+        }
+
+        if (dateString < this.firstDate) {
+            return this.firstDate;
+        }
+
+        if (dateString > this.lastDate) {
+            return this.lastDate;
+        }
+
+        return dateString;
+    }
+
+    enforceDateInputValue(input, messageKey = 'selectedOutOfRange') {
+        if (!input?.value) {
+            return '';
+        }
+
+        const selectedDate = input.value;
+        const clampedDate = this.clampDateStringToAvailableRange(selectedDate);
+
+        if (clampedDate && clampedDate !== selectedDate) {
+            input.value = clampedDate;
+            this.showMessage(this.t(messageKey), 'warning');
+        }
+
+        return clampedDate;
     }
 
     clampDateToAvailableRange(date) {
